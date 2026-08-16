@@ -1,5 +1,5 @@
 import { watch, type FSWatcher } from 'node:fs'
-import { relative, resolve } from 'node:path'
+import { join, relative, resolve } from 'node:path'
 import type { WorkspaceChangeEvent } from './contracts.js'
 
 type Listener = (event: WorkspaceChangeEvent) => void
@@ -33,17 +33,40 @@ export class OmvWorkspaceWatcher {
 
   private ensureWatching(): void {
     if (this.watcher !== undefined) return
-    this.watcher = watch(this.projectRoot, { recursive: true }, (_event, filename) => {
-      if (filename === null) return
-      const path = filename.toString().replaceAll('\\', '/')
-      if (path !== '.omv' && !path.startsWith('.omv/')) return
-      this.paths.add(path)
-      this.schedule()
-    })
+    try {
+      // Watch only the OMV state directory; a recursive watch over the whole
+      // project root would also stream node_modules churn into this callback.
+      this.watcher = watch(join(this.projectRoot, '.omv'), { recursive: true }, (_event, filename) => {
+        this.recordPath(filename === null ? '.omv' : filename.toString())
+      })
+    } catch (error) {
+      if (!isNotFound(error)) {
+        this.close()
+        return
+      }
+      try {
+        // `.omv` does not exist yet; watch the root shallowly until it is created.
+        this.watcher = watch(this.projectRoot, { recursive: false }, (_event, filename) => {
+          if (typeof filename !== 'string') return
+          if (filename.replaceAll('\\', '/').split('/')[0] !== '.omv') return
+          this.close()
+          if (this.listeners.size > 0) this.ensureWatching()
+        })
+      } catch {
+        this.close()
+        return
+      }
+    }
     this.watcher.on('error', () => {
       // A later subscriber retries after close; polling remains the client fallback.
       this.close()
     })
+  }
+
+  private recordPath(filename: string): void {
+    const path = filename.replaceAll('\\', '/')
+    this.paths.add(path === '' || path === '.omv' || path.startsWith('.omv/') ? path : `.omv/${path}`)
+    this.schedule()
   }
 
   private schedule(): void {
@@ -65,4 +88,8 @@ export class OmvWorkspaceWatcher {
     }, this.debounceMs)
     this.timer.unref()
   }
+}
+
+function isNotFound(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT'
 }

@@ -27,6 +27,20 @@ describe('DedupService', () => {
     expect(confirmed).toMatchObject({ status: 'duplicate', matches: [{ status: 'confirmed' }] })
   })
 
+  it('keeps same-package findings with distinct vulnerability classes out of possible_duplicate', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-omv-dedup-lanes-'))
+    roots.push(root)
+    const service = new DedupService(root)
+    const summary = await service.scan('finding-a', [
+      { id: 'finding-a', package: 'same-package', ecosystem: 'npm', vulnerability: 'ssrf', path: 'a.yaml' },
+      { id: 'finding-b', package: 'same-package', ecosystem: 'npm', vulnerability: 'path-traversal', path: 'b.yaml' },
+    ])
+    // Same package alone is related work, not a duplicate claim.
+    expect(summary.status).toBe('clear')
+    expect(summary.matches.some(match => match.targetFindingId === 'finding-b')).toBe(true)
+    expect(summary.matches.every(match => !match.reasons.includes('漏洞类型词项重合'))).toBe(true)
+  })
+
   it('records a clear result when no meaningful overlap exists', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-omv-dedup-clear-'))
     roots.push(root)

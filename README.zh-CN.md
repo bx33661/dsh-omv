@@ -139,6 +139,12 @@ dsh plugin --profile web add ./dsh-omv-1.0.6.tgz
 | `eventHeartbeatMs` | `20000` | SSE 心跳间隔，范围 1–300000 |
 | `httpBodyLimitBytes` | `262144` | `/action` JSON 请求体上限，范围 4096–16777216 |
 
+## 安全模型
+
+- 默认仅允许回环访问：客户端地址必须是 `127.0.0.1`/`::1`，且 `Host` 头必须是 `localhost`/`127.0.0.1`/`[::1]`（后者用于阻断浏览器 DNS rebinding 读取 `/export` 或伪造 `/action` 变更）。
+- **`allowRemoteAccess: true` 会同时关闭上述两道防线，且整个 API（包括全部变更动作）没有任何认证**。仅在受信任的内网使用，并自行在前层加认证或网络隔离。
+- 通过非回环主机名（如自定义 hosts 域名）本地访问时，也需要设置 `allowRemoteAccess: true` 才能通过 Host 校验。
+
 其他插件可以直接注入 OMV 服务，而不需要依赖 HTTP：
 
 ```ts

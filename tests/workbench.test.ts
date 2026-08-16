@@ -256,8 +256,14 @@ describe('OmvWorkbench', () => {
     const radarDir = join(workbench.config.projectRoot, '.omv', 'radar')
     await mkdir(radarDir, { recursive: true })
     await writeFile(join(radarDir, 'watchlist.yaml'), 'watch:\n  - ecosystem: npm\n    package: demo-radar-package\n    vulnerability: ssrf\n', 'utf8')
-    const radar = await workbench.action({ action: 'radar.refresh' }) as { events: unknown[] }
+    const radar = await workbench.action({ action: 'radar.refresh' }) as { events: unknown[]; queue: unknown[] }
     expect(radar.events).toHaveLength(1)
+    // Repeated refreshes (including the radarIntervalMs scheduler) must stay idempotent.
+    const refreshed = await workbench.action({ action: 'radar.refresh' }) as { events: unknown[]; queue: unknown[] }
+    expect(refreshed.events).toHaveLength(1)
+    expect(refreshed.queue).toHaveLength(radar.queue.length)
+    const rawEvents = await readFile(join(radarDir, 'events.jsonl'), 'utf8')
+    expect(rawEvents.trim().split('\n')).toHaveLength(1)
     const results = await workbench.search('demo-radar-package')
     expect(results.some(result => result.kind === 'radar')).toBe(true)
   })
@@ -339,6 +345,17 @@ describe('OmvWorkbench', () => {
     const dashboard = await workbench.dashboard()
     expect(dashboard.findings.some(finding => finding.id === 'radar-queue-finding')).toBe(true)
     expect((await workbench.radar()).queue[0]).toMatchObject({ status: 'candidate', findingId: 'radar-queue-finding' })
+  })
+
+  it('normalizes registry ecosystem aliases when converting Radar signals', async () => {
+    const workbench = await fixture()
+    const radarDir = join(workbench.config.projectRoot, '.omv', 'radar')
+    await mkdir(radarDir, { recursive: true })
+    await writeFile(join(radarDir, 'watchlist.yaml'), 'watch:\n  - ecosystem: pip\n    package: alias-package\n    vulnerability: ssrf\n', 'utf8')
+    const radar = await workbench.action({ action: 'radar.refresh' }) as { queue: { id: string }[] }
+    const converted = await workbench.action({ action: 'radar.queue.convert', id: radar.queue[0]!.id, findingId: 'radar-alias-finding' }) as { findingId: string }
+    expect(converted.findingId).toBe('radar-alias-finding')
+    await expect(workbench.finding('radar-alias-finding')).resolves.toMatchObject({ detail: { ecosystem: 'python' } })
   })
 
   it('unifies quality, dedup, review, report, disclosure, and reproduction actions', async () => {

@@ -18,7 +18,7 @@ export function assessEvidence(
   reproductionRuns: readonly ReproductionRun[] = [],
 ): EvidenceAssessment {
   const passedReproduction = reproductionRuns.some(run => run.status === 'passed')
-  const activeReproduction = reproductionRuns.some(run => run.status === 'planned' || run.status === 'running')
+  const activeReproduction = reproductionRuns.some(run => run.status === 'running')
   const failedReproduction = reproductionRuns.some(run => run.status === 'failed' || run.status === 'blocked')
   const source = knownAt(evidence, 'evidence.source')
   const sink = knownAt(evidence, 'evidence.sink')

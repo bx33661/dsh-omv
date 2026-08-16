@@ -447,7 +447,7 @@ export interface EvidenceAssessment {
   suggestedActions: string[]
 }
 
-export type ReproductionRunStatus = 'planned' | 'running' | 'passed' | 'failed' | 'blocked'
+export type ReproductionRunStatus = 'running' | 'passed' | 'failed' | 'blocked'
 
 export interface ReproductionRun {
   id: string

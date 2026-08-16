@@ -60,9 +60,18 @@ export class CampaignRunner {
     const width = boundedConcurrency(concurrency)
     const run = await this.serial(async () => {
       const store = await this.readStore()
-      const existing = Object.values(store.runs).find(item => item.campaignId === campaign.id && (item.status === 'queued' || item.status === 'running' || item.status === 'paused'))
-      if (existing !== undefined) return existing
       const now = new Date().toISOString()
+      const existing = Object.values(store.runs).find(item => item.campaignId === campaign.id && (item.status === 'queued' || item.status === 'running' || item.status === 'paused'))
+      if (existing !== undefined) {
+        // Reuse the active run but honour a newly requested width while it has not started.
+        if (existing.status === 'queued' && existing.concurrency !== width) {
+          existing.concurrency = width
+          existing.updatedAt = now
+          store.updatedAt = now
+          await this.writeStore(store)
+        }
+        return existing
+      }
       const id = `run-${compactTime(now)}-${randomUUID().slice(0, 8)}`
       const created: CampaignRun = {
         schemaVersion: STORE_VERSION,
@@ -99,10 +108,19 @@ export class CampaignRunner {
         lane.attempts += 1
         lane.updatedAt = now
       }
+      let storeDirty = lanes.length > 0
       if (lanes.length > 0) {
         run.status = 'running'
         run.startedAt ??= now
         run.updatedAt = now
+      } else if (run.status === 'queued' || run.status === 'running') {
+        // No lane claimed: converge a run whose lanes all reached a terminal state
+        // while its own status was never updated (e.g. a crash between lane writes).
+        const previous = run.status
+        updateRunStatus(run, now)
+        storeDirty = run.status !== previous
+      }
+      if (storeDirty) {
         store.updatedAt = now
         await this.writeStore(store)
       }
@@ -219,15 +237,16 @@ export class CampaignRunner {
       for (const lane of current.lanes) {
         const state = byFinding.get(lane.findingId)
         if (state === undefined) continue
+        // Terminal lane outcomes are deliberate decisions; never overwrite them from evidence drift.
+        const transitional = lane.status === 'queued' || lane.status === 'dispatching' || lane.status === 'running' || lane.status === 'awaiting_evidence'
+        if (!transitional) continue
         if (state.stage === 'report_ready' || state.stage === 'disclosed') {
-          if (lane.status !== 'completed') {
-            lane.status = 'completed'
-            lane.summary = `Evidence reached ${state.stage} with ${state.maturity} maturity`
-            lane.finishedAt = now
-            lane.updatedAt = now
-            changed.push({ laneId: lane.laneId, status: lane.status, detail: lane.summary })
-          }
-        } else if (state.stage === 'blocked' && lane.status !== 'blocked') {
+          lane.status = 'completed'
+          lane.summary = `Evidence reached ${state.stage} with ${state.maturity} maturity`
+          lane.finishedAt = now
+          lane.updatedAt = now
+          changed.push({ laneId: lane.laneId, status: lane.status, detail: lane.summary })
+        } else if (state.stage === 'blocked') {
           lane.status = 'blocked'
           lane.summary = `Evidence is blocked with ${state.maturity} maturity`
           lane.finishedAt = now
@@ -267,19 +286,22 @@ export class CampaignRunner {
     this.recovery ??= this.serial(async () => {
       const store = await this.readStore()
       const now = new Date().toISOString()
-      let changed = false
+      let storeChanged = false
       for (const run of Object.values(store.runs)) {
+        let runChanged = false
         for (const lane of run.lanes) {
           if (lane.status !== 'dispatching') continue
           lane.status = 'queued'
           lane.updatedAt = now
           lane.lastError = 'dispatch interrupted before DSH session binding; recovered for retry'
-          changed = true
+          runChanged = true
         }
-        if (changed && run.status === 'running' && !run.lanes.some(lane => lane.status === 'running')) run.status = 'queued'
-        if (changed) run.updatedAt = now
+        if (!runChanged) continue
+        if (run.status === 'running' && !run.lanes.some(lane => lane.status === 'running')) run.status = 'queued'
+        run.updatedAt = now
+        storeChanged = true
       }
-      if (changed) {
+      if (storeChanged) {
         store.updatedAt = now
         await this.writeStore(store)
       }

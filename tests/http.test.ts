@@ -1,4 +1,4 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { createServer, request, type IncomingMessage, type ServerResponse } from 'node:http'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -87,6 +87,19 @@ describe('workbench HTTP bridge', () => {
       const searchResponse = await fetch(`http://127.0.0.1:${address.port}/api/dsh-omv/search?q=not-present`)
       expect(searchResponse.status).toBe(200)
       await expect(searchResponse.json()).resolves.toMatchObject({ ok: true, data: [] })
+
+      // A loopback socket with a foreign Host header is the DNS-rebinding shape and must be rejected.
+      const rebound = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+        const req = request({ host: '127.0.0.1', port: address.port, path: '/api/dsh-omv/export', headers: { host: 'attacker.example' } }, res => {
+          let body = ''
+          res.on('data', (chunk: Buffer) => { body += chunk.toString() })
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, body }))
+        })
+        req.on('error', reject)
+        req.end()
+      })
+      expect(rebound.status).toBe(403)
+      expect(rebound.body).toContain('untrusted host header')
 
       const controller = new AbortController()
       const eventsResponse = await fetch(`http://127.0.0.1:${address.port}/api/dsh-omv/events`, { signal: controller.signal })

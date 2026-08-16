@@ -23,29 +23,49 @@ export async function readRadar(projectRoot: string): Promise<RadarPayload> {
   }
 }
 
-/** Append a deterministic local snapshot; deeper passive research is delegated to the DSH Agent workflow. */
+/**
+ * Append a deterministic local snapshot; deeper passive research is delegated to the DSH Agent workflow.
+ * Snapshot events carry a stable id per watch entry, so repeated refreshes (including the
+ * `radarIntervalMs` scheduler) are idempotent instead of appending duplicates forever.
+ */
 export async function refreshRadar(projectRoot: string): Promise<RadarPayload> {
   const radar = await readRadar(projectRoot)
   if (!radar.watchlistExists) throw new Error(`${radar.watchlistPath} does not exist; create a watchlist before refreshing radar`)
   if (radar.watch.length === 0) throw new Error(`${radar.watchlistPath} must contain at least one watch entry`)
   const observedAt = new Date().toISOString()
-  const events = radar.watch.map((entry, index): RadarEvent => {
-    const subject = entry.package ?? entry.keyword ?? entry.vulnerability ?? 'watch entry'
-    return {
-      id: `watchlist-${Date.parse(observedAt)}-${index + 1}`,
-      observedAt,
-      source: 'watchlist',
-      ecosystem: entry.ecosystem,
-      ...(entry.package === undefined ? {} : { package: entry.package }),
-      ...(entry.keyword === undefined ? {} : { keyword: entry.keyword }),
-      type: 'watchlist',
-      title: `Watchlist snapshot for ${entry.ecosystem}:${subject}`,
-    }
-  })
-  await mkdir(join(projectRoot, '.omv', 'radar'), { recursive: true })
-  await appendFile(radar.eventsPath, `${events.map(event => JSON.stringify(event)).join('\n')}\n`, 'utf8')
-  await mergeQueue(projectRoot, events)
+  const existingIds = new Set((await readAllEvents(projectRoot)).map(event => event.id))
+  const events = radar.watch.map(entry => watchlistSnapshot(entry, observedAt)).filter(event => !existingIds.has(event.id))
+  if (events.length > 0) {
+    await mkdir(join(projectRoot, '.omv', 'radar'), { recursive: true })
+    await appendFile(radar.eventsPath, `${events.map(event => JSON.stringify(event)).join('\n')}\n`, 'utf8')
+    await mergeQueue(projectRoot, events)
+  }
   return readRadar(projectRoot)
+}
+
+function watchlistSnapshot(entry: RadarWatchEntry, observedAt: string): RadarEvent {
+  const subject = entry.package ?? entry.keyword ?? entry.vulnerability ?? 'watch entry'
+  return {
+    id: snapshotEventId(entry),
+    observedAt,
+    source: 'watchlist',
+    ecosystem: entry.ecosystem,
+    ...(entry.package === undefined ? {} : { package: entry.package }),
+    ...(entry.keyword === undefined ? {} : { keyword: entry.keyword }),
+    type: 'watchlist',
+    title: `Watchlist snapshot for ${entry.ecosystem}:${subject}`,
+  }
+}
+
+/** One stable id per watch subject; editing the subject produces a new snapshot, refreshing does not. */
+function snapshotEventId(entry: RadarWatchEntry): string {
+  const subject = entry.package ?? entry.keyword ?? entry.vulnerability ?? 'watch'
+  return `watchlist-${`${entry.ecosystem}-${subject}`.toLowerCase().replace(/[^a-z0-9]+/gu, '-')}`
+}
+
+async function readAllEvents(projectRoot: string): Promise<RadarEvent[]> {
+  const text = await optionalRead(join(projectRoot, '.omv', 'radar', 'events.jsonl'))
+  return text === undefined ? [] : parseEvents(text)
 }
 
 export async function updateRadarQueue(

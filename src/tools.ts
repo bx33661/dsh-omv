@@ -97,9 +97,7 @@ export function registerOmvTools(ctx: Context, workbench: OmvWorkbench, runtimeS
         ...(args.product === undefined ? {} : { product: args.product }),
         ...(args.ecosystem === undefined ? {} : { ecosystem: args.ecosystem }),
         ...(args.vulnerabilityClass === undefined ? {} : { vulnerabilityClass: args.vulnerabilityClass }),
-        ...(args.researcherGoal === undefined ? {} : {
-          researcherGoal: args.researcherGoal as 'VulDB' | 'CVE' | 'advisory' | 'triage',
-        }),
+        ...(args.researcherGoal === undefined ? {} : { researcherGoal: researcherGoal(args.researcherGoal) }),
       }))
     },
     presentCall: args => ({
@@ -523,6 +521,11 @@ function campaignLocation(id: string): { path: string } {
 function evidenceStatus(value: string): 'candidate' | 'confirmed' | 'blocked' {
   if (value === 'candidate' || value === 'confirmed' || value === 'blocked') return value
   throw new Error('status must be candidate, confirmed, or blocked')
+}
+
+function researcherGoal(value: string): 'VulDB' | 'CVE' | 'advisory' | 'triage' {
+  if (value === 'VulDB' || value === 'CVE' || value === 'advisory' || value === 'triage') return value
+  throw new Error('researcherGoal must be one of: VulDB, CVE, advisory, triage')
 }
 
 function workflowIntent(value: string): 'audit' | 'repro' | 'dedup' | 'critic' | 'report' | 'disclose' {

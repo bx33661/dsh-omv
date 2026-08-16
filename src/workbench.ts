@@ -104,6 +104,8 @@ const MUTATIONS = new Set([
   'disclosure.schedule',
 ])
 
+const DASHBOARD_CACHE_TTL_MS = 1_000
+
 export class OmvWorkbench {
   readonly config: OmvWorkbenchConfig
   readonly workflow: OmvWorkflowService
@@ -113,6 +115,8 @@ export class OmvWorkbench {
   readonly dedup: DedupService
   readonly reporting: ReportingService
   private readonly watcher: OmvWorkspaceWatcher
+  /** Short-lived dashboard snapshot shared by polling, search and quality reads. Invalidated by every action. */
+  private dashboardCache: { promise: Promise<DashboardPayload>; expiresAt: number } | undefined
 
   constructor(config: OmvWorkbenchConfig) {
     this.config = { ...config, projectRoot: resolve(config.projectRoot) }
@@ -136,7 +140,22 @@ export class OmvWorkbench {
     return new OmvWorkbench({ ...this.config, projectRoot: root })
   }
 
+  /**
+   * Dashboard snapshot with a short shared cache. Search, quality and polling
+   * requests within the TTL reuse one build; every action() invalidates it.
+   */
   async dashboard(): Promise<DashboardPayload> {
+    const cached = this.dashboardCache
+    if (cached !== undefined && Date.now() < cached.expiresAt) return cached.promise
+    const promise = this.buildDashboard()
+    this.dashboardCache = { promise, expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS }
+    void promise.catch(() => {
+      if (this.dashboardCache?.promise === promise) this.dashboardCache = undefined
+    })
+    return promise
+  }
+
+  private async buildDashboard(): Promise<DashboardPayload> {
     const workspace = await workspaceStatus(this.config.projectRoot)
     const [{ findings: rawFindings, issues: workspaceIssues }, archived, campaignInspection, rawActivity, links, campaignRuns, reproductionRuns] = await Promise.all([
       readFindingWorkflowsSafe(this.config.projectRoot, workspace.findingsDir),
@@ -149,9 +168,10 @@ export class OmvWorkbench {
     ])
     const { campaigns, issues: campaignIssues } = campaignInspection
     const findings = await Promise.all(rawFindings.map(async finding => {
-      const [evidence, validation] = await Promise.all([
+      const [evidence, validation, review] = await Promise.all([
         this.readEvidence(finding.path),
         validateFinding(finding.id, this.config.projectRoot),
+        reviewFinding(finding.id, this.config.projectRoot),
       ])
       const sessionLink = links[finding.id]
       const findingReproductions = reproductionRuns.filter(run => run.findingId === finding.id)
@@ -159,7 +179,7 @@ export class OmvWorkbench {
       const assessment = assessEvidence(detail, evidence, findingReproductions)
       return {
         ...finding,
-        stage: deriveAuditStage(detail, evidence),
+        stage: deriveAuditStage(detail, evidence, review),
         assessment,
         ...(sessionLink === undefined ? {} : { sessionLink }),
       }
@@ -168,15 +188,14 @@ export class OmvWorkbench {
     const totalReadiness = findings.reduce((sum, finding) => sum + finding.readiness, 0)
     const averageReadiness = findings.length === 0 ? 0 : Math.round(totalReadiness / findings.length)
     const activity = rawActivity.slice(-this.config.activityLimit).reverse()
-    const [reviewRecords, dedupSummaries, reportPacks, disclosures] = await Promise.all([
+    const [reviewRecords, dedupSummaries, disclosures] = await Promise.all([
       this.collaboration.list(),
       this.dedup.list(),
-      Promise.all(findings.map(finding => this.reporting.inspect(finding.id))),
       this.reporting.disclosureList(),
     ])
     const reviewByFinding = new Map(reviewRecords.map(record => [record.findingId, record]))
     const dedupByFinding = new Map(dedupSummaries.map(summary => [summary.findingId, summary]))
-    const reportQueue = reportPacks.map((pack, index) => reportQueueItem(pack, findings[index]!)).sort((left, right) => reportQueueRank(left) - reportQueueRank(right))
+    const reportQueue = (await Promise.all(findings.map(async finding => reportQueueItem(await this.reporting.inspect(finding.id), finding)))).sort((left, right) => reportQueueRank(left) - reportQueueRank(right))
     const reviews = findings.map(finding => reviewQueueItem(finding.id, reviewByFinding.get(finding.id))).sort((left, right) => reviewQueueRank(left) - reviewQueueRank(right))
     const quality = buildWorkspaceQuality({ workspaceIssues, campaignIssues, findings, reports: reportQueue, reviews, dedup: dedupByFinding })
 
@@ -198,7 +217,7 @@ export class OmvWorkbench {
         reproducing: findings.filter(finding => finding.stage === 'reproducing').length,
         disclosed: findings.filter(finding => finding.stage === 'disclosed').length,
         activeRuns: campaignRuns.filter(run => run.status === 'queued' || run.status === 'running' || run.status === 'paused').length,
-        activeReproductions: reproductionRuns.filter(run => run.status === 'running' || run.status === 'planned').length,
+        activeReproductions: reproductionRuns.filter(run => run.status === 'running').length,
         evidenceMaturity: {
           unmapped: findings.filter(finding => finding.assessment.maturity === 'unmapped').length,
           developing: findings.filter(finding => finding.assessment.maturity === 'developing').length,
@@ -418,6 +437,7 @@ export class OmvWorkbench {
     if (MUTATIONS.has(request.action) && !this.config.allowMutations) {
       throw new Error('workspace mutations are disabled by plugin configuration')
     }
+    this.dashboardCache = undefined
     const before = request.id === undefined ? undefined : await this.tryReadFinding(request.id)
     let result: unknown
     switch (request.action) {
@@ -653,6 +673,7 @@ export class OmvWorkbench {
   }
 
   close(): void {
+    this.dashboardCache = undefined
     this.watcher.close()
   }
 
@@ -778,8 +799,11 @@ function radarFindingId(event: { ecosystem: string; package?: string; keyword?: 
 }
 
 function radarEvidenceEcosystem(value: string): EvidenceEcosystem {
-  const normalized = value.toLowerCase()
-  if (!(EVIDENCE_ECOSYSTEMS as readonly string[]).includes(normalized)) throw new Error(`Radar event ecosystem is not supported by Evidence.v1: ${value}`)
+  // Accept registry aliases (pip, pypi, cargo, …) the same way Campaign creation does.
+  const normalized = normalizeCampaignEcosystem(value.trim().toLowerCase())
+  if (!(EVIDENCE_ECOSYSTEMS as readonly string[]).includes(normalized)) {
+    throw new Error(`Radar event ecosystem is not supported by Evidence.v1: ${value}`)
+  }
   return normalized as EvidenceEcosystem
 }
 
@@ -796,11 +820,20 @@ function completeSeed(request: ActionRequest): {
     throw new Error(`ecosystem must be one of: ${EVIDENCE_ECOSYSTEMS.join(', ')}`)
   }
   return {
-    researcherGoal: (request.researcherGoal ?? 'triage') as EvidenceResearcherGoal,
+    researcherGoal: requiredResearcherGoal(request.researcherGoal),
     product: requiredString(request.product, 'product'),
     ecosystem: ecosystem as EvidenceEcosystem,
     vulnerabilityClass: requiredString(request.vulnerabilityClass, 'vulnerabilityClass'),
   }
+}
+
+function requiredResearcherGoal(value: string | undefined): EvidenceResearcherGoal {
+  if (value === undefined || value.trim() === '') return 'triage'
+  const normalized = value.trim()
+  if (normalized !== 'VulDB' && normalized !== 'CVE' && normalized !== 'advisory' && normalized !== 'triage') {
+    throw new Error('researcherGoal must be one of: VulDB, CVE, advisory, triage')
+  }
+  return normalized
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

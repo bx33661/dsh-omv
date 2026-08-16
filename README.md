@@ -78,6 +78,12 @@ Override the row in `$DSH_HOME/profiles/web/cordis.patch.yml`:
 
 Relative `projectRoot` values resolve from the directory where DSH starts. A patch replaces the complete `config` value, so retain every field you still need.
 
+## Security model
+
+- By default the API is loopback-only: the client address must be `127.0.0.1`/`::1` and the `Host` header must be `localhost`/`127.0.0.1`/`[::1]`. The Host check blocks browser DNS-rebinding pages from reading `/export` or forging `/action` mutations.
+- **`allowRemoteAccess: true` disables both guards, and the whole API (including every mutation action) has no authentication.** Only enable it on a trusted network, behind your own auth proxy or network isolation.
+- Local access through a non-loopback hostname (for example a custom hosts domain) also requires `allowRemoteAccess: true` to pass the Host check.
+
 Other plugins can consume the host capability without depending on the HTTP bridge:
 
 ```ts

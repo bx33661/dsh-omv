@@ -19,7 +19,14 @@ export interface DedupCandidate {
   path: string
 }
 
-/** Local-first duplicate triage. External advisory adapters can add matches later. */
+const VULNERABILITY_OVERLAP_REASON = '漏洞类型词项重合'
+
+/**
+ * Local-first duplicate triage. External advisory adapters can add matches later.
+ * A match alone is only "review this neighbour"; `possible_duplicate` additionally
+ * requires the vulnerability class to overlap, so same-package campaigns with
+ * distinct vulnerability lanes do not flag each other as duplicates.
+ */
 export class DedupService {
   readonly projectRoot: string
   private writeTail: Promise<void> = Promise.resolve()
@@ -81,7 +88,7 @@ export class DedupService {
       }
       const summary: DedupSummary = {
         findingId: target.id,
-        status: matches.some(match => match.score >= 65) ? 'possible_duplicate' : 'clear',
+        status: matches.some(match => match.score >= 65 && (match.source !== 'local' || match.reasons.includes(VULNERABILITY_OVERLAP_REASON))) ? 'possible_duplicate' : 'clear',
         scannedAt: now,
         matches: matches.sort((left, right) => right.score - left.score),
         sources: ['local', ...(matches.some(match => match.source === 'advisory') ? ['advisory'] : [])],
@@ -169,7 +176,7 @@ function compare(left: DedupCandidate, right: DedupCandidate): { score: number; 
   const overlap = tokenOverlap(left.vulnerability, right.vulnerability)
   if (overlap > .2) {
     score += Math.round(overlap * 25)
-    reasons.push('漏洞类型词项重合')
+    reasons.push(VULNERABILITY_OVERLAP_REASON)
   }
   return { score: Math.min(100, score), reasons }
 }

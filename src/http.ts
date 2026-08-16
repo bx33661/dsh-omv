@@ -45,6 +45,7 @@ async function routeRequest(
   resolveWorkbench: WorkbenchResolver,
 ): Promise<void> {
   requireAllowedClient(req, configured.config.allowRemoteAccess)
+  requireTrustedHost(req, configured.config.allowRemoteAccess)
   const method = req.method ?? 'GET'
   const url = new URL(req.url ?? '/', 'http://dsh.local')
   const suffix = url.pathname.slice(configured.config.apiPrefix.length) || '/'
@@ -186,6 +187,27 @@ function requireAllowedClient(req: IncomingMessage, allowRemoteAccess: boolean):
   const address = req.socket.remoteAddress ?? ''
   if (address === '127.0.0.1' || address === '::1' || address.startsWith('::ffff:127.')) return
   throw new RequestError(403, 'remote workbench access is disabled')
+}
+
+/**
+ * DNS-rebinding guard: the socket may be loopback while the browser targets a
+ * rebound foreign hostname. Loopback-only deployments must present a loopback
+ * Host header, otherwise a remote page could read `/export` or POST mutations
+ * as if it were same-origin.
+ */
+function requireTrustedHost(req: IncomingMessage, allowRemoteAccess: boolean): void {
+  if (allowRemoteAccess) return
+  const host = req.headers.host
+  if (host === undefined || host.trim() === '') throw new RequestError(403, 'missing host header')
+  let hostname: string
+  try {
+    hostname = new URL(`http://${host}`).hostname.toLowerCase()
+  } catch {
+    throw new RequestError(403, 'invalid host header')
+  }
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '::1' && hostname !== '[::1]') {
+    throw new RequestError(403, `untrusted host header for loopback-only workbench: ${host}`)
+  }
 }
 
 function requireSameOrigin(req: IncomingMessage): void {

@@ -1,0 +1,23 @@
+# Dependencies and build output
+node_modules/
+lib/
+coverage/
+*.tgz
+
+# Local OMV workspaces and reference checkout
+.omv/
+ohmyvul/
+
+# Local tooling and generated captures
+.playwright-mcp/
+*.log
+.DS_Store
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Editor files
+.vscode/
+.idea/

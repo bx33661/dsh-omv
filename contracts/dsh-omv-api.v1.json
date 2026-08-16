@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.dsh-omv/contracts/api.v1.json",
+  "title": "dsh-omv HTTP API v1",
+  "description": "Stable envelope and mutation vocabulary for the native DSH audit workbench.",
+  "oneOf": [
+    { "$ref": "#/$defs/success" },
+    { "$ref": "#/$defs/failure" }
+  ],
+  "$defs": {
+    "success": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "data"],
+      "properties": {
+        "ok": { "const": true },
+        "data": {}
+      }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "error"],
+      "properties": {
+        "ok": { "const": false },
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "string" },
+            "message": { "type": "string" }
+          }
+        }
+      }
+    },
+    "protocolVersion": { "const": "1" },
+    "auditStage": {
+      "enum": ["candidate", "investigating", "reproducing", "confirmed", "report_ready", "disclosed", "blocked", "archived"]
+    },
+    "workflowIntent": {
+      "enum": ["audit", "repro", "dedup", "critic", "report", "disclose"]
+    },
+    "reviewStatus": {
+      "enum": ["unreviewed", "in_review", "changes_requested", "approved", "rejected"]
+    },
+    "dedupStatus": {
+      "enum": ["unknown", "clear", "possible_duplicate", "duplicate", "not_applicable"]
+    },
+    "reportPackStatus": {
+      "enum": ["missing", "draft", "ready", "stale"]
+    },
+    "disclosureChannel": {
+      "enum": ["vendor", "cna", "public", "internal"]
+    },
+    "action": {
+      "enum": [
+        "workspace.init", "finding.create", "finding.validate", "finding.doctor",
+        "finding.repro", "finding.promote", "finding.archive", "finding.restore",
+        "campaign.create", "campaign.repair", "campaign.seed", "campaign.start", "radar.refresh",
+        "session.link", "session.unlink", "workflow.start",
+        "review.update", "review.note.add", "dedup.scan", "dedup.update",
+        "report.prepare", "disclosure.schedule", "workspace.quality",
+        "finding.dedup", "report.inspect", "review.inspect"
+      ]
+    }
+  }
+}

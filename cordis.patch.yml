@@ -1,0 +1,18 @@
+# dsh-omv contributes one dual-face plugin row. Its host half exposes the
+# local .omv workspace to DSH tools, commands, system prompt, and HTTP;
+# package.json's dsh.client manifest contributes native conversation/settings UI.
+- insert:
+    - id: dsh-omv
+      name: dsh-omv
+      config:
+        projectRoot: '.'
+        apiPrefix: '/api/dsh-omv'
+        allowMutations: true
+        allowRemoteAccess: false
+        activityLimit: 60
+        refreshIntervalMs: 15000
+        campaignConcurrency: 3
+        radarIntervalMs: 0
+        watchDebounceMs: 90
+        eventHeartbeatMs: 20000
+        httpBodyLimitBytes: 262144

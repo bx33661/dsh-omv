@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.dsh-omv/contracts/api.v2.json",
+  "title": "dsh-omv HTTP API v2",
+  "description": "Stable envelope, contextual evidence-maturity states, Audit Runtime states, and mutation vocabulary for the native DSH workbench. Consumers may request additive v1 payloads with ?protocol=1.",
+  "oneOf": [
+    { "$ref": "#/$defs/success" },
+    { "$ref": "#/$defs/failure" }
+  ],
+  "$defs": {
+    "success": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "data"],
+      "properties": { "ok": { "const": true }, "data": {} }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "error"],
+      "properties": {
+        "ok": { "const": false },
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message"],
+          "properties": { "code": { "type": "string" }, "message": { "type": "string" } }
+        }
+      }
+    },
+    "protocolVersion": { "const": "2" },
+    "compatibleProtocolVersions": { "const": ["1", "2"] },
+    "auditStage": {
+      "enum": ["candidate", "investigating", "reproducing", "confirmed", "report_ready", "disclosed", "blocked", "archived"]
+    },
+    "evidenceMaturity": { "enum": ["unmapped", "developing", "supported", "verified", "contested"] },
+    "evidenceCheckState": { "enum": ["missing", "partial", "supported", "verified", "not_applicable"] },
+    "campaignRunStatus": { "enum": ["queued", "running", "paused", "completed", "needs_attention", "cancelled", "failed"] },
+    "campaignLaneStatus": { "enum": ["queued", "dispatching", "running", "awaiting_evidence", "completed", "failed", "blocked", "cancelled"] },
+    "reproductionRunStatus": { "enum": ["planned", "running", "passed", "failed", "blocked"] },
+    "reviewStatus": { "enum": ["unreviewed", "in_review", "changes_requested", "approved", "rejected"] },
+    "dedupStatus": { "enum": ["unknown", "clear", "possible_duplicate", "duplicate", "not_applicable"] },
+    "reportPackStatus": { "enum": ["missing", "draft", "ready", "stale"] },
+    "disclosureChannel": { "enum": ["vendor", "cna", "public", "internal"] },
+    "action": {
+      "enum": [
+        "workspace.init", "finding.create", "finding.validate", "finding.doctor",
+        "finding.repro", "finding.promote", "finding.archive", "finding.restore",
+        "campaign.create", "campaign.repair", "campaign.seed", "campaign.start",
+        "campaign.run.create", "campaign.run.claim", "campaign.run.bind",
+        "campaign.run.lane.update", "campaign.run.control", "campaign.run.reconcile",
+        "radar.refresh", "radar.queue.update", "radar.queue.convert",
+        "repro.run.start", "repro.run.finish",
+        "session.link", "session.unlink", "workflow.start",
+        "review.update", "review.note.add", "dedup.scan", "dedup.update",
+        "report.prepare", "disclosure.schedule", "workspace.quality",
+        "finding.dedup", "report.inspect", "review.inspect"
+      ]
+    }
+  }
+}

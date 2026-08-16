@@ -44,6 +44,24 @@ export interface Config {
   eventHeartbeatMs?: number
   /** Maximum JSON mutation body in bytes. */
   httpBodyLimitBytes?: number
+  /** Enable PoC generation and validation features. */
+  pocEnabled?: boolean
+  /** Allow PoC containers to access the network. */
+  pocAllowNetwork?: boolean
+  /** Allowed Docker images for PoC execution. */
+  pocDockerImages?: string[]
+  /** Maximum PoC execution time in milliseconds. */
+  pocTimeoutMs?: number
+  /** Memory limit for PoC containers in MB. */
+  pocMemoryMb?: number
+  /** CPU limit for PoC containers. */
+  pocCpuLimit?: number
+  /** Process limit for PoC containers. */
+  pocPidLimit?: number
+  /** Maximum PoC script size in bytes. */
+  pocMaxScriptBytes?: number
+  /** Maximum PoC output size in bytes. */
+  pocMaxOutputBytes?: number
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -57,6 +75,15 @@ export const Config: Schema<Config> = Schema.object({
   watchDebounceMs: Schema.number().step(1).min(0).max(10_000).default(90),
   eventHeartbeatMs: Schema.number().step(1).min(1).max(300_000).default(20_000),
   httpBodyLimitBytes: Schema.number().step(1).min(4_096).max(16 * 1024 * 1024).default(256 * 1024),
+  pocEnabled: Schema.boolean().default(true),
+  pocAllowNetwork: Schema.boolean().default(false),
+  pocDockerImages: Schema.array(Schema.string()).min(1).default(['python:3.12-slim']),
+  pocTimeoutMs: Schema.number().step(1).min(1_000).max(600_000).default(30_000),
+  pocMemoryMb: Schema.number().step(1).min(64).max(2048).default(256),
+  pocCpuLimit: Schema.number().min(0.1).max(4).default(1),
+  pocPidLimit: Schema.number().step(1).min(16).max(512).default(128),
+  pocMaxScriptBytes: Schema.number().step(1).min(1_024).max(1024 * 1024).default(128 * 1024),
+  pocMaxOutputBytes: Schema.number().step(1).min(1_024).max(1024 * 1024).default(64 * 1024),
 })
 
 export function apply(ctx: Context, config: Config = {}): void {
@@ -71,6 +98,15 @@ export function apply(ctx: Context, config: Config = {}): void {
     watchDebounceMs: boundedInteger(config.watchDebounceMs ?? 90, 0, 10_000, 'watchDebounceMs'),
     eventHeartbeatMs: boundedInteger(config.eventHeartbeatMs ?? 20_000, 1, 300_000, 'eventHeartbeatMs'),
     httpBodyLimitBytes: boundedInteger(config.httpBodyLimitBytes ?? 256 * 1024, 4_096, 16 * 1024 * 1024, 'httpBodyLimitBytes'),
+    pocEnabled: config.pocEnabled ?? true,
+    pocAllowNetwork: config.pocAllowNetwork ?? false,
+    pocDockerImages: config.pocDockerImages ?? ['python:3.12-slim'],
+    pocTimeoutMs: boundedInteger(config.pocTimeoutMs ?? 30_000, 1_000, 600_000, 'pocTimeoutMs'),
+    pocMemoryMb: boundedInteger(config.pocMemoryMb ?? 256, 64, 2048, 'pocMemoryMb'),
+    pocCpuLimit: config.pocCpuLimit ?? 1,
+    pocPidLimit: boundedInteger(config.pocPidLimit ?? 128, 16, 512, 'pocPidLimit'),
+    pocMaxScriptBytes: boundedInteger(config.pocMaxScriptBytes ?? 128 * 1024, 1_024, 1024 * 1024, 'pocMaxScriptBytes'),
+    pocMaxOutputBytes: boundedInteger(config.pocMaxOutputBytes ?? 64 * 1024, 1_024, 1024 * 1024, 'pocMaxOutputBytes'),
   }
   const omv = new OmvService(ctx, resolved)
   const workbench = omv.workbench
@@ -105,7 +141,7 @@ export function apply(ctx: Context, config: Config = {}): void {
       'Use omv_workspace_overview to orient, omv_finding_inspect before changing a finding,',
       'omv_workflow_link when one finding becomes the session focus, omv_finding_repro_init before reproduction,',
       'omv_finding_validate after evidence edits, and omv_finding_create only for a new candidate.',
-      'For campaign work inspect and seed the Campaign before delegating one lane per subagent; use omv_workspace_search to recover prior evidence.',
+      'For campaign work inspect the Campaign, propose attack-surface cards with omv_campaign_surfaces, select or skip cards, then seed only selected cards before delegating one card per subagent; do not seed generic lanes when a surfaces file exists.',
       'Campaign Runner lanes are durable DSH sessions: inspect them with omv_campaign_run_inspect and always commit an outcome with omv_campaign_lane_update before a lane ends.',
       'Use omv_evidence_graph and omv_quality_gate to verify provenance and report readiness; bracket every local reproduction with omv_repro_run_start and omv_repro_run_finish.',
       'Use omv_quality_overview to triage the workspace queue and omv_dedup_scan before submission; report drafts and disclosure timelines belong to the omv-report and omv-disclose Agent workflows.',
@@ -173,6 +209,9 @@ export type {
   FindingPayload,
   FindingSessionLink,
   CampaignPayload,
+  CampaignSurfaces,
+  AttackSurfaceCardView,
+  SurfaceCardStatus,
   CampaignIssue,
   CampaignDispatch,
   CampaignRun,
@@ -184,6 +223,7 @@ export type {
   EvidenceGraph,
   EvidenceGraphNode,
   EvidenceGraphEdge,
+  EvidenceGraphAnalysis,
   QualityGateResult,
   QualityGateCheck,
   EvidenceAssessment,
@@ -210,6 +250,13 @@ export type {
   ReportQueueItem,
   WorkspaceQualityIssue,
   WorkspaceQualityPayload,
+  PocLanguage,
+  PocStatus,
+  PocValidation,
+  PocGenerationRequest,
+  PocDraft,
+  PocRun,
+  CodeRef,
 } from './contracts.js'
 export { DEFAULT_OMV_SETTINGS, OMV_SETTINGS_NAMESPACE, OMV_TABS } from './settings.js'
 export { OmvSettingsSchema } from './settings-schema.js'
@@ -223,5 +270,10 @@ export { OmvWorkbench } from './workbench.js'
 export { OmvWorkflowService, deriveAuditStage, suggestedIntent } from './workflow.js'
 export { CampaignRunner } from './runner.js'
 export { ReproductionService } from './reproduction.js'
-export { buildEvidenceGraph, evaluateQualityGate } from './evidence-graph.js'
+export { buildEvidenceGraph, evaluateQualityGate, analyzeEvidenceGraph, exportEvidenceGraph } from './evidence-graph.js'
 export { assessEvidence } from './assessment.js'
+export { parseCodeRef, resolveCodeRef, formatCodeRef } from './code-ref.js'
+export { createPocGenerationRequest } from './poc-generator.js'
+export { DockerPocExecutor, defaultCommandRunner } from './poc-executor.js'
+export type { CommandRunner, PocExecutor } from './poc-executor.js'
+export { PocStore } from './poc-store.js'

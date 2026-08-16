@@ -15,3 +15,13 @@
         watchDebounceMs: 90
         eventHeartbeatMs: 20000
         httpBodyLimitBytes: 262144
+        pocEnabled: true
+        pocAllowNetwork: false
+        pocDockerImages:
+          - 'python:3.12-slim'
+        pocTimeoutMs: 30000
+        pocMemoryMb: 256
+        pocCpuLimit: 1
+        pocPidLimit: 128
+        pocMaxScriptBytes: 131072
+        pocMaxOutputBytes: 65536

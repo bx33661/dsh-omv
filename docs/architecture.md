@@ -1,6 +1,6 @@
 # 项目结构
 
-`dsh-omv` 是一个双面 DSH 插件：Node 主机侧负责把 `oh-my-vul` 工作区能力接入 Cordis；浏览器侧负责把审计台投影到 DSH 的原生会话、侧栏、设置和轨迹界面。
+`dsh-omv` 是一个双面 DSH 插件：Node 主机侧负责把 `oh-my-vul` 工作区能力接入 Cordis；浏览器侧负责把审计台投影到 DSH 的原生会话、侧栏和设置界面。
 
 ## 目录约定
 
@@ -11,15 +11,14 @@
 │   ├── contracts.ts          # Host/Client 共享的协议类型
 │   ├── client/
 │   │   ├── index.tsx         # Client 入口：DSH slots、会话状态与页面编排
-│   │   ├── pages.tsx         # 总览、漏洞、战役、雷达、质量、复现、评审、报告、轨迹
+│   │   ├── pages.tsx         # 总览、漏洞、质量、复现、战役、搜索
 │   │   ├── ui.tsx            # Hero、Metric、Status、Modal、Icon 等原子 UI
 │   │   ├── runtime.ts        # HTTP/SSE 地址、响应解析、格式化与状态映射
 │   │   ├── types.ts          # Client 注入对象、Tab、Icon 和命令常量
-│   │   ├── styles.ts         # DSH alias 驱动的宿主视觉样式
-│   │   └── styles/trace.ts   # 轨迹页图表与事件流动画样式
+│   │   └── styles.ts         # DSH alias 驱动的宿主视觉样式
 │   ├── workbench.ts          # 工作区聚合与动作路由
 │   ├── workbench/quality.ts  # 队列排序与质量信号投影
-│   └── *.ts                  # Workflow、Runner、Radar、Review、Dedup、Report 等领域服务
+│   └── *.ts                  # Workflow、Runner、Dedup、Report 等领域服务
 ├── tests/                    # Vitest 单元/集成测试，和生产源码分离
 ├── contracts/                # 对外 API 合同快照
 ├── docs/                     # 集成指南、架构和界面资产

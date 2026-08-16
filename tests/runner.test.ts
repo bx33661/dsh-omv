@@ -25,6 +25,15 @@ async function fixture(): Promise<OmvWorkbench> {
     watchDebounceMs: 10,
     eventHeartbeatMs: 20_000,
     httpBodyLimitBytes: 256 * 1024,
+    pocEnabled: true,
+    pocAllowNetwork: false,
+    pocDockerImages: ['python:3.12-slim'],
+    pocTimeoutMs: 30_000,
+    pocMemoryMb: 256,
+    pocCpuLimit: 1,
+    pocPidLimit: 128,
+    pocMaxScriptBytes: 128 * 1024,
+    pocMaxOutputBytes: 64 * 1024,
   })
 }
 

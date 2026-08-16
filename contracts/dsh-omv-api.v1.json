@@ -57,11 +57,10 @@
       "enum": [
         "workspace.init", "finding.create", "finding.validate", "finding.doctor",
         "finding.repro", "finding.promote", "finding.archive", "finding.restore",
-        "campaign.create", "campaign.repair", "campaign.seed", "campaign.start", "radar.refresh",
+        "campaign.create", "campaign.repair", "campaign.seed", "campaign.start",
         "session.link", "session.unlink", "workflow.start",
-        "review.update", "review.note.add", "dedup.scan", "dedup.update",
-        "report.prepare", "disclosure.schedule", "workspace.quality",
-        "finding.dedup", "report.inspect", "review.inspect"
+        "dedup.scan", "dedup.update",
+        "workspace.quality", "finding.dedup"
       ]
     }
   }

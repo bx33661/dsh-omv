@@ -198,13 +198,13 @@ export function registerOmvTools(ctx: Context, workbench: OmvWorkbench, runtimeS
 
   register(defineTool({
     name: 'omv_campaign_inspect',
-    description: 'Inspect one OMV Campaign.v1 including its target, audit lanes, runbook, linked DSH session, and orchestration history.',
+    description: 'Inspect one OMV Campaign.v1 including attack-surface cards, target, audit lanes, runbook, linked DSH session, and orchestration history.',
     parameters: { id: { type: 'string', required: true, description: 'The campaign id.' } },
     output: stringOutput(),
     async execute(args, exec) {
       return pretty(await scoped(workbench, exec.agent?.session.header.cwd).campaign(args.id))
     },
-    presentCall: args => ({ card: 'generic', title: `读取 Campaign · ${args.id}`, kind: 'read', rawInput: args.id, locations: [campaignLocation(args.id)] }),
+    presentCall: args => ({ card: 'generic', title: `读取 Campaign · ${args.id}`, kind: 'read', rawInput: args.id, locations: [campaignLocation(args.id), surfacesLocation(args.id)] }),
     presentResult: (args, result) => ({ card: 'generic', title: `Campaign · ${args.id}`, content: result.content }),
     isConcurrencySafe: () => true,
   }))
@@ -225,7 +225,7 @@ export function registerOmvTools(ctx: Context, workbench: OmvWorkbench, runtimeS
 
   register(defineTool({
     name: 'omv_campaign_seed',
-    description: 'Create the candidate Evidence.v1 findings declared by every lane in an OMV Campaign.',
+    description: 'Create candidate Evidence.v1 findings. If a surfaces sidecar exists, only selected attack-surface cards are seeded; otherwise Campaign lanes are used.',
     parameters: { id: { type: 'string', required: true, description: 'The campaign id.' } },
     output: stringOutput(),
     async execute(args, exec) {
@@ -234,13 +234,44 @@ export function registerOmvTools(ctx: Context, workbench: OmvWorkbench, runtimeS
         action: 'campaign.seed', id: args.id, ...(sessionId === undefined ? {} : { sessionId }),
       }))
     },
-    presentCall: args => ({ card: 'generic', title: `初始化 Campaign lanes · ${args.id}`, kind: 'edit', rawInput: args.id, locations: [campaignLocation(args.id)] }),
-    presentResult: (args, result) => ({ card: 'generic', title: `Campaign lanes 已初始化 · ${args.id}`, content: result.content }),
+    presentCall: args => ({ card: 'generic', title: `初始化 Campaign 候选 · ${args.id}`, kind: 'edit', rawInput: args.id, locations: [campaignLocation(args.id), surfacesLocation(args.id)] }),
+    presentResult: (args, result) => ({ card: 'generic', title: `Campaign 候选已初始化 · ${args.id}`, content: result.content }),
+  }))
+
+  register(defineTool({
+    name: 'omv_campaign_surfaces',
+    description: 'Propose, inspect, select, or skip Attack Surface Cards for a Campaign. Cards are unproven hypotheses; selecting does not claim a vulnerability. Seed only after at least one card is selected.',
+    parameters: {
+      id: { type: 'string', required: true, description: 'The campaign id.' },
+      operation: { type: 'string', required: true, description: 'propose, inspect, select, or skip.' },
+      cards: { type: 'string', description: 'Comma-separated surface card ids. Required for select and skip.' },
+      force: { type: 'boolean', description: 'Regenerate proposed cards when operation is propose.' },
+    },
+    output: stringOutput(),
+    async execute(args, exec) {
+      const scopedWorkbench = scoped(workbench, exec.agent?.session.header.cwd)
+      const operation = surfaceOperation(args.operation)
+      if (operation === 'inspect') return pretty((await scopedWorkbench.campaign(args.id)).surfaces)
+      return pretty(await scopedWorkbench.action({
+        action: operation === 'propose' ? 'campaign.surfaces.propose' : operation === 'select' ? 'campaign.surfaces.select' : 'campaign.surfaces.skip',
+        id: args.id,
+        ...(operation === 'propose' ? { force: args.force === true } : { cardIds: csv(args.cards ?? '') }),
+      }))
+    },
+    presentCall: args => ({
+      card: 'generic',
+      title: `${surfaceOperationLabel(args.operation)} · ${args.id}`,
+      kind: args.operation === 'inspect' ? 'read' : 'edit',
+      rawInput: args,
+      locations: [campaignLocation(args.id), surfacesLocation(args.id)],
+    }),
+    presentResult: (args, result) => ({ card: 'generic', title: `攻击面 · ${args.id}`, content: result.content }),
+    isConcurrencySafe: args => args.operation === 'inspect',
   }))
 
   register(defineTool({
     name: 'omv_workspace_search',
-    description: 'Search across OMV Evidence files, archived findings, campaigns, Radar events, and workspace activity.',
+    description: 'Search across OMV Evidence files, archived findings, campaigns, and workspace activity.',
     parameters: { query: { type: 'string', required: true, description: 'Literal search phrase.' } },
     output: stringOutput(),
     async execute(args, exec) {
@@ -326,7 +357,7 @@ export function registerOmvTools(ctx: Context, workbench: OmvWorkbench, runtimeS
 
   register(defineTool({
     name: 'omv_dedup_scan',
-    description: 'Scan a finding against local findings and passive Radar titles, then persist a dedup summary.',
+    description: 'Scan a finding against local findings and persist a dedup summary.',
     parameters: { id: { type: 'string', required: true, description: 'Finding id.' } },
     output: stringOutput(),
     async execute(args, exec) {
@@ -420,6 +451,22 @@ function findingLocation(id: string): { path: string } {
 
 function campaignLocation(id: string): { path: string } {
   return { path: `.omv/campaigns/${id}.yaml` }
+}
+
+function surfacesLocation(id: string): { path: string } {
+  return { path: `.omv/campaigns/${id}.surfaces.yaml` }
+}
+
+function surfaceOperation(value: string): 'propose' | 'inspect' | 'select' | 'skip' {
+  if (value === 'propose' || value === 'inspect' || value === 'select' || value === 'skip') return value
+  throw new Error('operation must be propose, inspect, select, or skip')
+}
+
+function surfaceOperationLabel(value: string): string {
+  if (value === 'propose') return '提出攻击面'
+  if (value === 'select') return '选用攻击面'
+  if (value === 'skip') return '跳过攻击面'
+  return '读取攻击面'
 }
 
 function evidenceStatus(value: string): 'candidate' | 'confirmed' | 'blocked' {

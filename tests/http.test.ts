@@ -24,9 +24,18 @@ describe('workbench HTTP bridge', () => {
       activityLimit: 10,
       refreshIntervalMs: 1234,
       campaignConcurrency: 3,
-        watchDebounceMs: 10,
+      watchDebounceMs: 10,
       eventHeartbeatMs: 200,
       httpBodyLimitBytes: 256 * 1024,
+      pocEnabled: true,
+      pocAllowNetwork: false,
+      pocDockerImages: ['python:3.12-slim'],
+      pocTimeoutMs: 30_000,
+      pocMemoryMb: 256,
+      pocCpuLimit: 1,
+      pocPidLimit: 128,
+      pocMaxScriptBytes: 128 * 1024,
+      pocMaxOutputBytes: 64 * 1024,
     })
     let handler: ((req: IncomingMessage, res: ServerResponse) => void | Promise<void>) | undefined
     let transform: ((html: string) => string) | undefined

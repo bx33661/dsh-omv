@@ -34,8 +34,8 @@ export interface SettingsInjected {
   settings: SettingsScope<OmvSettings>
 }
 
-export const OMV_COMMANDS = ['omv', 'omv-health', 'omv-runtime', 'omv-finding', 'omv-validate', 'omv-init', 'omv-new', 'omv-link', 'omv-repro', 'omv-promote', 'omv-run', 'omv-campaign', 'omv-campaign-repair', 'omv-campaign-seed', 'omv-search', 'omv-campaign-run', 'omv-campaign-lane', 'omv-quality', 'omv-dedup'] as const
+export const OMV_COMMANDS = ['omv', 'omv-health', 'omv-runtime', 'omv-finding', 'omv-validate', 'omv-init', 'omv-new', 'omv-link', 'omv-repro', 'omv-promote', 'omv-run', 'omv-campaign', 'omv-campaign-repair', 'omv-campaign-seed', 'omv-campaign-surfaces', 'omv-search', 'omv-campaign-run', 'omv-campaign-lane', 'omv-quality', 'omv-dedup'] as const
 
-export type IconName = 'shield' | 'grid' | 'finding' | 'radar' | 'pulse' | 'refresh' | 'close' | 'plus' | 'check' | 'gauge' | 'alert' | 'chevron' | 'search' | 'terminal' | 'arrowUp' | 'inbox' | 'folder'
+export type IconName = 'shield' | 'grid' | 'finding' | 'campaign' | 'pulse' | 'refresh' | 'close' | 'plus' | 'check' | 'gauge' | 'alert' | 'chevron' | 'search' | 'terminal' | 'arrowUp' | 'inbox' | 'folder' | 'file'
 
 export type { DashboardPayload, EvidenceAssessment, EvidenceCheckState, SessionId, WorkflowIntent }

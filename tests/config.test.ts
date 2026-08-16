@@ -11,6 +11,15 @@ describe('dsh-omv Cordis config', () => {
       watchDebounceMs: 90,
       eventHeartbeatMs: 20_000,
       httpBodyLimitBytes: 256 * 1024,
+      pocEnabled: true,
+      pocAllowNetwork: false,
+      pocDockerImages: ['python:3.12-slim'],
+      pocTimeoutMs: 30_000,
+      pocMemoryMb: 256,
+      pocCpuLimit: 1,
+      pocPidLimit: 128,
+      pocMaxScriptBytes: 128 * 1024,
+      pocMaxOutputBytes: 64 * 1024,
     })
   })
 
@@ -19,5 +28,9 @@ describe('dsh-omv Cordis config', () => {
     expect(() => Config({ httpBodyLimitBytes: 100 })).toThrow(/httpBodyLimitBytes/)
     expect(() => Config({ campaignConcurrency: 9 })).toThrow(/campaignConcurrency/)
     expect(() => Config({ apiPrefix: 'api/dsh-omv' })).toThrow(/apiPrefix/)
+    expect(() => Config({ pocDockerImages: [] })).toThrow(/pocDockerImages/)
+    expect(() => Config({ pocTimeoutMs: 0 })).toThrow(/pocTimeoutMs/)
+    expect(() => Config({ pocMemoryMb: 0 })).toThrow(/pocMemoryMb/)
+    expect(() => Config({ pocPidLimit: 0 })).toThrow(/pocPidLimit/)
   })
 })

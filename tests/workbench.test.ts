@@ -25,6 +25,15 @@ async function fixture(allowMutations = true): Promise<OmvWorkbench> {
     watchDebounceMs: 10,
     eventHeartbeatMs: 20_000,
     httpBodyLimitBytes: 256 * 1024,
+    pocEnabled: true,
+    pocAllowNetwork: false,
+    pocDockerImages: ['python:3.12-slim'],
+    pocTimeoutMs: 30_000,
+    pocMemoryMb: 256,
+    pocCpuLimit: 1,
+    pocPidLimit: 128,
+    pocMaxScriptBytes: 128 * 1024,
+    pocMaxOutputBytes: 64 * 1024,
   })
 }
 
@@ -205,6 +214,46 @@ describe('OmvWorkbench', () => {
     const payload = await workbench.campaign('demo-campaign')
     expect(payload.sessionLink?.sessionId).toBe('session-campaign')
     expect(payload.history[0]?.action).toBe('campaign.start')
+    expect(payload.surfaces.cards).toEqual([])
+  })
+
+  it('proposes attack-surface cards, selects incrementally, and seeds only selected cards', async () => {
+    const workbench = await fixture()
+    await workbench.action({
+      action: 'campaign.create',
+      id: 'surface-campaign',
+      target: 'surface-package',
+      ecosystem: 'npm',
+      vulnerabilities: ['xss', 'ssrf'],
+    })
+    const empty = await workbench.campaign('surface-campaign')
+    expect(empty.surfaces.cards).toEqual([])
+    expect(empty.surfaces.nextAction).toContain('surfaces propose')
+
+    const proposed = await workbench.action({ action: 'campaign.surfaces.propose', id: 'surface-campaign' }) as { cards: Array<{ id: string; status: string }>; selected: number }
+    expect(proposed.cards.length).toBeGreaterThan(1)
+    expect(proposed.cards.every(card => card.status === 'proposed')).toBe(true)
+    expect(proposed.selected).toBe(0)
+    await expect(workbench.action({ action: 'campaign.seed', id: 'surface-campaign' })).rejects.toThrow(/no selected cards/i)
+
+    const first = proposed.cards[0]!.id
+    const second = proposed.cards[1]!.id
+    await workbench.action({ action: 'campaign.surfaces.select', id: 'surface-campaign', cardIds: [first] })
+    const afterSelect = await workbench.campaign('surface-campaign')
+    expect(afterSelect.surfaces.cards.find(card => card.id === first)?.status).toBe('selected')
+    expect(afterSelect.surfaces.cards.find(card => card.id === second)?.status).toBe('proposed')
+
+    await workbench.action({ action: 'campaign.surfaces.skip', id: 'surface-campaign', cardIds: [second] })
+    const afterSkip = await workbench.campaign('surface-campaign')
+    expect(afterSkip.surfaces).toMatchObject({ selected: 1, skipped: 1 })
+    expect(afterSkip.surfaces.cards.find(card => card.id === second)?.status).toBe('skipped')
+
+    const seeded = await workbench.action({ action: 'campaign.seed', id: 'surface-campaign' }) as { seedMode: string; created: Array<{ id: string }> }
+    expect(seeded.seedMode).toBe('surfaces')
+    expect(seeded.created.map(item => item.id)).toEqual([`surface-campaign-${first}`])
+
+    const run = await workbench.action({ action: 'campaign.run.create', id: 'surface-campaign', sessionId: 'session-surface', concurrency: 1 }) as { lanes: Array<{ laneId: string; findingId: string }> }
+    expect(run.lanes).toEqual([expect.objectContaining({ laneId: first, findingId: `surface-campaign-${first}` })])
   })
 
   it('normalizes package-registry ecosystem aliases when creating a Campaign', async () => {

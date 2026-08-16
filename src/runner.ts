@@ -374,7 +374,7 @@ function lanePrompt(campaign: Campaign, lane: CampaignLane, runId: string): stri
     `你正在执行 OMV Campaign ${campaign.id} 的独立 Lane ${lane.id}。`,
     `Run ID：${runId}；Finding：${lane.finding_id}；漏洞类型：${lane.vulnerability_class}。`,
     `目标：${campaign.target.name} ${campaign.target.version}；源码：${campaign.target.source}；深度：${campaign.budget.depth}。`,
-    '先调用 omv_campaign_run_inspect 与 omv_finding_inspect，只处理当前 Lane；沿 source → sink → guard 建立行级证据，必要时使用 omv_repro_run_start / omv_repro_run_finish 记录复现。',
+    '先调用 omv_campaign_inspect 阅读该 Lane 对应攻击面卡片的 sources/sinks/guards 与 false-positive checks，再 omv_finding_inspect。只处理当前卡片；沿 source → sink → guard 建立行级证据，证伪则 blocked 并写明理由。必要时使用 omv_repro_run_start / omv_repro_run_finish 记录复现。',
     '每次修改 Evidence 后调用 omv_finding_validate，并调用 omv_quality_gate 检查报告门禁。',
     `结束前必须调用 omv_campaign_lane_update，参数 runId=${runId}、laneId=${lane.id}，明确 completed、blocked、failed 或 awaiting_evidence，并写入简短总结。`,
   ].join('\n')

@@ -27,6 +27,15 @@ describe('native OMV Cordis service', () => {
       watchDebounceMs: 90,
       eventHeartbeatMs: 20_000,
       httpBodyLimitBytes: 256 * 1024,
+      pocEnabled: true,
+      pocAllowNetwork: false,
+      pocDockerImages: ['python:3.12-slim'],
+      pocTimeoutMs: 30_000,
+      pocMemoryMb: 256,
+      pocCpuLimit: 1,
+      pocPidLimit: 128,
+      pocMaxScriptBytes: 128 * 1024,
+      pocMaxOutputBytes: 64 * 1024,
     })
     expect(service.workbench.config.projectRoot).toBe(root)
     expect(service.scoped(other)).toBe(service.scoped(other))

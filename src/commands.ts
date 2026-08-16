@@ -171,8 +171,9 @@ export function registerOmvCommands(ctx: Context, workbench: OmvWorkbench, runti
       return [
         `${detail.campaign.title} · ${detail.campaign.status} · ${detail.campaign.budget.depth}`,
         `${detail.campaign.target.name} ${detail.campaign.target.version} · ${detail.campaign.lanes.length} lanes`,
+        `攻击面：${detail.surfaces.cards.length === 0 ? '尚未提出' : `${detail.surfaces.selected} 选用 · ${detail.surfaces.skipped} 跳过 · ${detail.surfaces.proposed} 待定`}`,
         `关联会话：${detail.sessionLink?.sessionId ?? 'none'}`,
-        `下一步：${detail.nextAction}`,
+        `下一步：${detail.surfaces.nextAction}`,
       ].join('\n')
     }),
   })
@@ -190,18 +191,46 @@ export function registerOmvCommands(ctx: Context, workbench: OmvWorkbench, runti
 
   ctx.commands.register({
     name: 'omv-campaign-seed',
-    description: '按 Campaign lanes 初始化 Evidence.v1 候选集合',
+    description: '按已选用的攻击面卡片（若无卡片则按 lanes）初始化 Evidence.v1 候选',
     input: { hint: '<campaign-id>' },
     handler: invocation => run(invocation, workbench, async scoped => {
       const id = requiredInput(invocation.rawInput, 'campaign id')
       const result = await scoped.action({ action: 'campaign.seed', id, sessionId: invocation.agent.session.header.id })
-      return `Campaign lanes 已初始化：${id}\n${JSON.stringify(result, null, 2)}`
+      return `Campaign 候选已初始化：${id}\n${JSON.stringify(result, null, 2)}`
+    }),
+  })
+
+  ctx.commands.register({
+    name: 'omv-campaign-surfaces',
+    description: '提出、查看、选用或跳过 Campaign 攻击面卡片',
+    input: { hint: '<campaign-id> [propose|show|select|skip] [card-ids|--force]' },
+    handler: invocation => run(invocation, workbench, async scoped => {
+      const [id, operation = 'show', ...rest] = words(invocation.rawInput)
+      if (id === undefined) throw new Error('campaign id is required')
+      if (operation === 'show' || operation === 'inspect') {
+        const surfaces = (await scoped.campaign(id)).surfaces
+        if (surfaces.cards.length === 0) return `尚未提出攻击面：${id}\n下一步：${surfaces.nextAction}`
+        const rows = surfaces.cards.map(card => `- [${card.status}] ${card.id} · ${card.vulnerabilityClass} · ${card.title}`)
+        return [`攻击面 ${id} · ${surfaces.selected} 选用 · ${surfaces.skipped} 跳过 · ${surfaces.proposed} 待定`, ...rows, `下一步：${surfaces.nextAction}`].join('\n')
+      }
+      if (operation === 'propose') {
+        const result = await scoped.action({ action: 'campaign.surfaces.propose', id, force: rest.includes('--force') })
+        return `已提出攻击面：${id}\n${JSON.stringify(result, null, 2)}`
+      }
+      if (operation !== 'select' && operation !== 'skip') throw new Error('operation must be propose, show, select, or skip')
+      const cardIds = rest.filter(value => value !== '--force')
+      const result = await scoped.action({
+        action: operation === 'select' ? 'campaign.surfaces.select' : 'campaign.surfaces.skip',
+        id,
+        cardIds,
+      })
+      return `攻击面已更新：${id} → ${operation}\n${JSON.stringify(result, null, 2)}`
     }),
   })
 
   ctx.commands.register({
     name: 'omv-search',
-    description: '跨 Finding、Campaign、Radar 和活动记录搜索 OMV 工作区',
+    description: '跨 Finding、Campaign 和活动记录搜索 OMV 工作区',
     input: { hint: '<query>' },
     handler: invocation => run(invocation, workbench, async scoped => {
       const query = requiredInput(invocation.rawInput, 'query')

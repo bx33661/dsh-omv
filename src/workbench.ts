@@ -62,6 +62,7 @@ import { DedupService, type DedupCandidate } from './dedup.js'
 import { ReportingService } from './reporting.js'
 import { assessEvidence } from './assessment.js'
 import { buildWorkspaceQuality, evidenceQueueRank, readFindingWorkflowsSafe, reportQueueItem, reportQueueRank } from './workbench/quality.js'
+import { proposeCampaignSurfaces, runLanesFromSurfaces, showCampaignSurfaces, updateCampaignSurfaceCards } from './surfaces.js'
 
 const MUTATIONS = new Set([
   'workspace.init',
@@ -73,6 +74,9 @@ const MUTATIONS = new Set([
   'campaign.create',
   'campaign.repair',
   'campaign.seed',
+  'campaign.surfaces.propose',
+  'campaign.surfaces.select',
+  'campaign.surfaces.skip',
   'campaign.start',
   'campaign.run.create',
   'campaign.run.claim',
@@ -300,7 +304,12 @@ export class OmvWorkbench {
   async campaign(id: string): Promise<CampaignPayload> {
     const detail = await showCampaign(id, this.config.projectRoot)
     const subject = `campaign:${detail.campaign.id}`
-    const [links, history, runs] = await Promise.all([this.workflow.links(), this.workflow.history(subject), this.runner.list(detail.campaign.id)])
+    const [links, history, runs, surfaces] = await Promise.all([
+      this.workflow.links(),
+      this.workflow.history(subject),
+      this.runner.list(detail.campaign.id),
+      showCampaignSurfaces(detail.campaign.id, this.config.projectRoot),
+    ])
     const sessionLink = links[subject]
     return {
       ...detail,
@@ -308,6 +317,7 @@ export class OmvWorkbench {
       generatedAt: new Date().toISOString(),
       history,
       runs,
+      surfaces,
       ...(sessionLink === undefined ? {} : { sessionLink }),
     }
   }
@@ -438,6 +448,20 @@ export class OmvWorkbench {
         return repairCampaign(requiredString(request.id, 'id'), this.config.projectRoot)
       case 'campaign.seed':
         return seedCampaign(requiredString(request.id, 'id'), this.config.projectRoot)
+      case 'campaign.surfaces.propose':
+        return proposeCampaignSurfaces(requiredString(request.id, 'id'), this.config.projectRoot, request.force === true)
+      case 'campaign.surfaces.select':
+        return updateCampaignSurfaceCards(
+          requiredString(request.id, 'id'),
+          this.config.projectRoot,
+          requiredCardIds(request.cardIds).map(cardId => ({ cardId, status: 'selected' as const })),
+        )
+      case 'campaign.surfaces.skip':
+        return updateCampaignSurfaceCards(
+          requiredString(request.id, 'id'),
+          this.config.projectRoot,
+          requiredCardIds(request.cardIds).map(cardId => ({ cardId, status: 'skipped' as const })),
+        )
       case 'campaign.start': {
         const detail = await showCampaign(requiredString(request.id, 'id'), this.config.projectRoot)
         const sessionId = requiredString(request.sessionId, 'sessionId')
@@ -455,7 +479,9 @@ export class OmvWorkbench {
       case 'campaign.run.create': {
         const detail = await showCampaign(requiredString(request.id, 'id'), this.config.projectRoot)
         const sessionId = requiredString(request.sessionId, 'sessionId')
-        const run = await this.runner.create(detail.campaign, sessionId, request.concurrency ?? this.config.campaignConcurrency)
+        const surfaces = await showCampaignSurfaces(detail.campaign.id, this.config.projectRoot)
+        const campaign = { ...detail.campaign, lanes: runLanesFromSurfaces(detail.campaign.lanes, surfaces) }
+        const run = await this.runner.create(campaign, sessionId, request.concurrency ?? this.config.campaignConcurrency)
         await this.workflow.linkFinding(`campaign:${detail.campaign.id}`, sessionId)
         await this.workflow.record({ findingId: `campaign:${detail.campaign.id}`, action: 'campaign.run.create', sessionId })
         return run
@@ -617,10 +643,17 @@ function campaignPrompt(detail: Awaited<ReturnType<typeof showCampaign>>): strin
   return [
     `执行 OMV Campaign ${detail.campaign.id}（${detail.campaign.title}）。`,
     `目标：${detail.campaign.target.name} ${detail.campaign.target.version}；深度：${detail.campaign.budget.depth}。`,
-    '先读取 Campaign YAML 与 runbook，并调用 omv_workspace_overview。按 lane 并行委派 DSH 子 Agent；每个子任务只负责一条 lane，输出 Evidence.v1 候选及 source → sink → guard 证据。',
+    '先读取 Campaign 与攻击面卡片：没有卡片时调用 omv_campaign_surfaces propose，再 select 2–3 张后再 seed。卡片是未证实假说，选用不等于存在漏洞。',
+    '若已有选中卡片，按选中卡片而不是泛化 lane 委派 DSH 子 Agent；每个子任务只负责一张卡，沿卡片上的 sources/sinks/guards 建立 Evidence.v1，证伪则跳过并写明 false-positive 理由。',
     '汇总时逐条调用 omv_finding_validate；失败 lane 要记录阻塞原因与重试建议，不得用其他 lane 的结论代替。',
     `Lanes:\n${lanes}`,
   ].join('\n')
+}
+
+function requiredCardIds(values: readonly string[] | undefined): string[] {
+  const ids = [...new Set((values ?? []).map(value => value.trim()).filter(Boolean))]
+  if (ids.length === 0) throw new Error('cardIds is required')
+  return ids
 }
 
 function searchScore(haystack: string, needle: string): number {

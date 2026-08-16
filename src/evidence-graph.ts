@@ -2,6 +2,7 @@ import type { FindingDetail } from 'oh-my-vul'
 import type {
   EvidenceCheckState,
   EvidenceGraph,
+  EvidenceGraphAnalysis,
   EvidenceGraphEdge,
   EvidenceGraphNode,
   QualityGateCheck,
@@ -10,6 +11,7 @@ import type {
   WorkflowEvent,
 } from './contracts.js'
 import { assessEvidence } from './assessment.js'
+import { parseCodeRef } from './code-ref.js'
 
 const EVIDENCE_PATHS = [
   ['source', 'evidence.source'],
@@ -46,6 +48,7 @@ export function buildEvidenceGraph(input: {
     const value = display(raw)
     const nodeId = `${rootId}:${kind}`
     const line = lineOf(input.rawEvidence, path)
+    const codeRef = parseCodeRef(raw)
     nodes.push({
       id: nodeId,
       kind,
@@ -54,6 +57,7 @@ export function buildEvidenceGraph(input: {
       state: known(raw) ? kind === 'observation' && input.detail.status === 'confirmed' ? 'verified' : 'known' : 'unknown',
       path,
       ...(line === undefined ? {} : { line }),
+      ...(codeRef === undefined ? {} : { codeRef }),
     })
   }
   edges.push(
@@ -180,3 +184,164 @@ function labelFor(kind: typeof EVIDENCE_PATHS[number][0]): string {
 }
 
 function escapeRegExp(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&') }
+
+export function analyzeEvidenceGraph(graph: EvidenceGraph): EvidenceGraphAnalysis {
+  const rootId = `finding:${graph.findingId}`
+  const sourceId = `${rootId}:source`
+  const sinkId = `${rootId}:sink`
+  const guardId = `${rootId}:guard`
+
+  const nodeById = new Map(graph.nodes.map(node => [node.id, node]))
+  const edgesByFrom = new Map<string, EvidenceGraphEdge[]>()
+  for (const edge of graph.edges) {
+    if (!edgesByFrom.has(edge.from)) edgesByFrom.set(edge.from, [])
+    edgesByFrom.get(edge.from)!.push(edge)
+  }
+
+  const primaryPath: string[] = []
+  const highlightedNodes: string[] = []
+  const highlightedEdges: string[] = []
+  const missingGuards: string[] = []
+  const disconnectedNodes: string[] = []
+
+  // Build primary path: source → sink → guard
+  const sourceNode = nodeById.get(sourceId)
+  const sinkNode = nodeById.get(sinkId)
+  const guardNode = nodeById.get(guardId)
+
+  if (sourceNode !== undefined && sourceNode.state !== 'unknown') {
+    primaryPath.push(sourceId)
+    highlightedNodes.push(sourceId)
+  }
+
+  if (sinkNode !== undefined && sinkNode.state !== 'unknown') {
+    primaryPath.push(sinkId)
+    highlightedNodes.push(sinkId)
+  }
+
+  if (guardNode !== undefined) {
+    if (guardNode.state === 'unknown' || guardNode.value === 'unknown' || guardNode.value === 'missing') {
+      missingGuards.push(guardId)
+    } else {
+      primaryPath.push(guardId)
+      highlightedNodes.push(guardId)
+    }
+  }
+
+  // Highlight edges along the primary path
+  for (const edge of graph.edges) {
+    if ((edge.from === sourceId && edge.to === sinkId) ||
+        (edge.from === sinkId && edge.to === guardId)) {
+      highlightedEdges.push(`${edge.from}→${edge.to}`)
+    }
+  }
+
+  // Find disconnected nodes: nodes not reachable from finding or claim
+  const reachable = new Set<string>()
+  const queue = [rootId, `${rootId}:claim`]
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (reachable.has(current)) continue
+    reachable.add(current)
+    const edges = edgesByFrom.get(current) ?? []
+    for (const edge of edges) {
+      if (!reachable.has(edge.to)) queue.push(edge.to)
+    }
+  }
+
+  for (const node of graph.nodes) {
+    if (!reachable.has(node.id) && node.kind !== 'finding' && node.kind !== 'claim') {
+      disconnectedNodes.push(node.id)
+    }
+  }
+
+  return {
+    primaryPath,
+    highlightedNodes,
+    highlightedEdges,
+    missingGuards,
+    disconnectedNodes,
+  }
+}
+
+export function exportEvidenceGraph(graph: EvidenceGraph, format: 'dot' | 'mermaid'): string {
+  if (format === 'dot') return exportToDot(graph)
+  if (format === 'mermaid') return exportToMermaid(graph)
+  throw new Error(`unsupported export format: ${format}`)
+}
+
+function exportToDot(graph: EvidenceGraph): string {
+  const lines: string[] = ['digraph EvidenceGraph {', '  rankdir=LR;', '  node [shape=box];', '']
+
+  for (const node of graph.nodes) {
+    const id = safeIdForDot(node.id)
+    const label = escapeDotLabel(node.label)
+    const shape = node.kind === 'finding' ? 'ellipse' : 'box'
+    const style = node.state === 'unknown' ? 'dashed' : node.state === 'verified' ? 'bold' : 'solid'
+    lines.push(`  ${id} [label="${label}", shape=${shape}, style=${style}];`)
+  }
+
+  lines.push('')
+
+  for (const edge of graph.edges) {
+    const from = safeIdForDot(edge.from)
+    const to = safeIdForDot(edge.to)
+    const label = escapeDotLabel(edge.relation.replace(/_/g, ' '))
+    lines.push(`  ${from} -> ${to} [label="${label}"];`)
+  }
+
+  lines.push('}')
+  return lines.join('\n')
+}
+
+function exportToMermaid(graph: EvidenceGraph): string {
+  const lines: string[] = ['graph LR', '']
+
+  for (const node of graph.nodes) {
+    const id = safeIdForMermaid(node.id)
+    const label = escapeMermaidLabel(node.label)
+    const bracket = node.kind === 'finding' ? ['((', '))'] : node.state === 'unknown' ? ['[', ']'] : ['[', ']']
+    lines.push(`  ${id}${bracket[0]}"${label}"${bracket[1]}`)
+  }
+
+  lines.push('')
+
+  for (const edge of graph.edges) {
+    const from = safeIdForMermaid(edge.from)
+    const to = safeIdForMermaid(edge.to)
+    const label = escapeMermaidLabel(edge.relation.replace(/_/g, ' '))
+    lines.push(`  ${from} -->|"${label}"| ${to}`)
+  }
+
+  return lines.join('\n')
+}
+
+function safeIdForDot(id: string): string {
+  return id.replace(/[^A-Za-z0-9_]/g, '_')
+}
+
+function safeIdForMermaid(id: string): string {
+  return id.replace(/[^A-Za-z0-9_]/g, '_')
+}
+
+function escapeDotLabel(label: string): string {
+  return label
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+}
+
+function escapeMermaidLabel(label: string): string {
+  return label
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/\{/g, '\\{')
+    .replace(/\}/g, '\\}')
+    .replace(/\n/g, ' ')
+    .replace(/\r/g, '')
+}

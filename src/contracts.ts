@@ -27,6 +27,24 @@ export interface OmvWorkbenchConfig {
   eventHeartbeatMs: number
   /** Maximum JSON mutation body accepted by the HTTP bridge. */
   httpBodyLimitBytes: number
+  /** Enable PoC generation and validation features. */
+  pocEnabled: boolean
+  /** Allow PoC containers to access the network. */
+  pocAllowNetwork: boolean
+  /** Allowed Docker images for PoC execution. */
+  pocDockerImages: string[]
+  /** Maximum PoC execution time in milliseconds. */
+  pocTimeoutMs: number
+  /** Memory limit for PoC containers in MB. */
+  pocMemoryMb: number
+  /** CPU limit for PoC containers. */
+  pocCpuLimit: number
+  /** Process limit for PoC containers. */
+  pocPidLimit: number
+  /** Maximum PoC script size in bytes. */
+  pocMaxScriptBytes: number
+  /** Maximum PoC output size in bytes. */
+  pocMaxOutputBytes: number
 }
 
 export interface DashboardMetrics {
@@ -125,7 +143,7 @@ export interface DedupMatch {
   id: string
   findingId: string
   targetFindingId?: string
-  source: 'local' | 'radar' | 'advisory'
+  source: 'local' | 'advisory'
   title: string
   score: number
   reasons: string[]
@@ -248,12 +266,44 @@ export interface WorkspaceChangeEvent {
   paths: string[]
 }
 
+export type SurfaceCardStatus = 'proposed' | 'selected' | 'skipped'
+
+export interface AttackSurfaceCardView {
+  id: string
+  title: string
+  pack: string
+  vulnerabilityClass: string
+  status: SurfaceCardStatus
+  findingId: string
+  sources: string[]
+  sinks: string[]
+  guards: string[]
+  discoveryHints: string[]
+  falsePositiveChecks: string[]
+  why: string
+}
+
+/** Projection of `.omv/campaigns/<id>.surfaces.yaml`. A missing file is an empty card list. */
+export interface CampaignSurfaces {
+  path: string
+  generatedAt?: string
+  updatedAt?: string
+  catalogVersion?: string
+  cards: AttackSurfaceCardView[]
+  proposed: number
+  selected: number
+  skipped: number
+  nextAction: string
+  issue?: string
+}
+
 export interface CampaignPayload extends ShowCampaignResult {
   protocolVersion: typeof WORKBENCH_PROTOCOL_VERSION
   generatedAt: string
   sessionLink?: FindingSessionLink
   history: WorkflowEvent[]
   runs: CampaignRun[]
+  surfaces: CampaignSurfaces
 }
 
 export interface CampaignDispatch {
@@ -332,6 +382,14 @@ export interface EvidenceGraphNode {
   line?: number
   sessionId?: string
   timestamp?: string
+  codeRef?: CodeRef
+}
+
+export interface CodeRef {
+  path: string
+  line?: number
+  endLine?: number
+  note: string
 }
 
 export interface EvidenceGraphEdge {
@@ -340,11 +398,20 @@ export interface EvidenceGraphEdge {
   relation: 'describes' | 'flows_to' | 'guarded_by' | 'reproduced_by' | 'observed_as' | 'produced_in' | 'attached_as'
 }
 
+export interface EvidenceGraphAnalysis {
+  primaryPath: string[]
+  highlightedNodes: string[]
+  highlightedEdges: string[]
+  missingGuards: string[]
+  disconnectedNodes: string[]
+}
+
 export interface EvidenceGraph {
   findingId: string
   generatedAt: string
   nodes: EvidenceGraphNode[]
   edges: EvidenceGraphEdge[]
+  analysis?: EvidenceGraphAnalysis
 }
 
 export interface QualityGateCheck {
@@ -456,6 +523,9 @@ export type MutationAction =
   | 'campaign.create'
   | 'campaign.repair'
   | 'campaign.seed'
+  | 'campaign.surfaces.propose'
+  | 'campaign.surfaces.select'
+  | 'campaign.surfaces.skip'
   | 'campaign.start'
   | 'campaign.run.create'
   | 'campaign.run.claim'
@@ -470,8 +540,81 @@ export type MutationAction =
   | 'workflow.start'
   | 'dedup.scan'
   | 'dedup.update'
+  | 'poc.generate'
+  | 'poc.validate'
 
-export type ReadAction = 'finding.validate' | 'finding.doctor' | 'workspace.quality' | 'finding.dedup'
+export type ReadAction =
+  | 'finding.validate'
+  | 'finding.doctor'
+  | 'workspace.quality'
+  | 'finding.dedup'
+  | 'finding.graph.export'
+  | 'poc.run.inspect'
+
+export type PocLanguage = 'python' | 'bash' | 'curl'
+export type PocStatus = 'queued' | 'running' | 'passed' | 'failed' | 'blocked' | 'needs_review'
+
+export interface PocValidation {
+  ok: boolean
+  errors: string[]
+  warnings: string[]
+}
+
+export interface PocGenerationRequest {
+  templateId: string
+  language: PocLanguage
+  recommendedImage: string
+  requiresNetwork: boolean
+  context: Record<string, unknown>
+  generationPrompt: string
+  resultProtocol: string
+  safetyConstraints: {
+    allowHostNetwork: boolean
+    allowPrivileged: boolean
+    allowDockerSocket: boolean
+    maxScriptBytes: number
+    maxOutputBytes: number
+  }
+}
+
+export interface PocDraft {
+  id: string
+  findingId: string
+  templateId: string
+  language: PocLanguage
+  script: string
+  commandArgs: string[]
+  image: string
+  requiresNetwork: boolean
+  validation: PocValidation
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PocRun {
+  id: string
+  draftId: string
+  findingId: string
+  backend: 'docker'
+  status: PocStatus
+  exitCode?: number
+  stdout?: string
+  stderr?: string
+  artifacts: string[]
+  observedResult?: string
+  safetyProfile: {
+    network: 'none' | 'bridge'
+    readOnly: boolean
+    capsDropped: boolean
+    pidLimit: number
+    memoryMb: number
+    cpuLimit: number
+  }
+  createdAt: string
+  updatedAt: string
+  startedAt?: string
+  finishedAt?: string
+}
 
 export interface ActionRequest {
   action: MutationAction | ReadAction
@@ -492,6 +635,8 @@ export interface ActionRequest {
   depth?: 'quick' | 'standard' | 'deep'
   localReproduction?: 'yes' | 'no' | 'unknown'
   vulnerabilities?: string[]
+  cardIds?: string[]
+  force?: boolean
   runId?: string
   laneId?: string
   concurrency?: number
@@ -507,4 +652,11 @@ export interface ActionRequest {
   findingId?: string
   dedupStatus?: DedupStatus
   matchId?: string
+  exportFormat?: 'dot' | 'mermaid'
+  draftId?: string
+  script?: string
+  language?: PocLanguage
+  templateId?: string
+  image?: string
+  requiresNetwork?: boolean
 }

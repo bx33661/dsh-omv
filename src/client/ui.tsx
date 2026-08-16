@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import type { DashboardPayload, EvidenceAssessment } from '../contracts.js'
+import { formatCodeRef, parseCodeRef } from '../code-ref.js'
 import type { IconName } from './types.js'
 import {
   checkStateIcon,
@@ -47,8 +48,20 @@ export function Section({ title, meta, children }: { title: string; meta: string
   return <section className="omv-section"><div className="omv-section-title"><h3>{title}</h3><span>{meta}</span></div>{children}</section>
 }
 
-export function ChainCard({ label, value }: { label: string; value: unknown }) {
-  return <div className="omv-chain-card"><span>{label}</span><code>{displayValue(value)}</code></div>
+export function ChainCard({ label, value, onOpen }: { label: string; value: unknown; onOpen?: (path: string) => void }) {
+  const ref = parseCodeRef(value)
+  const openable = ref !== undefined && onOpen !== undefined
+  const body = ref === undefined
+    ? <code>{displayValue(value)}</code>
+    : <><code>{formatCodeRef(ref)}</code>{ref.note !== '' && <small>{ref.note}</small>}</>
+  if (!openable) return <div className="omv-chain-card"><span>{label}</span>{body}</div>
+  return (
+    <button type="button" className="omv-chain-card" data-openable="true" onClick={() => onOpen(ref.path)} title={`打开 ${formatCodeRef(ref)}`}>
+      <span>{label}</span>
+      {body}
+      <em><Icon name="file" size={11} />打开源码</em>
+    </button>
+  )
 }
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -74,7 +87,7 @@ export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
     shield: <><path d="M12 3 5 6v5c0 4.5 2.7 7.7 7 9 4.3-1.3 7-4.5 7-9V6l-7-3Z" /><path d="m9.4 11.7 1.7 1.7 3.8-4" /></>,
     grid: <><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></>,
     finding: <><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4M11 8v3M11 14h.01"/></>,
-    radar: <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12 18.5 5.5M12 3v2M3 12h2"/></>,
+    campaign: <><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2"/></>,
     pulse: <path d="M3 12h4l2-6 4 12 2-6h6"/>,
     refresh: <><path d="M20 7v5h-5"/><path d="M19 12a7 7 0 1 0-2 5"/></>,
     close: <path d="m6 6 12 12M18 6 6 18"/>,
@@ -88,6 +101,7 @@ export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
     arrowUp: <><path d="m12 19V5M6 11l6-6 6 6"/></>,
     inbox: <><path d="M4 5h16v14H4z"/><path d="M4 14h5l2 2h2l2-2h5"/></>,
     folder: <><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="M3 9h18"/></>,
+    file: <><path d="M7 3.5h7l5 5V20a1.5 1.5 0 0 1-1.5 1.5h-10.5A1.5 1.5 0 0 1 5.5 20V5A1.5 1.5 0 0 1 7 3.5Z"/><path d="M14 3.5V9h5"/></>,
   }
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{paths[name]}</svg>
 }

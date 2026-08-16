@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: DSH integration guide
+    url: https://github.com/bx33661/dsh-omv/blob/main/docs/dsh-integration.md
+    about: Read the architecture and native DSH integration notes before opening a design question.
+  - name: Security report
+    url: https://github.com/bx33661/dsh-omv/security/policy
+    about: Report security-sensitive issues privately instead of posting exploit details in a public issue.

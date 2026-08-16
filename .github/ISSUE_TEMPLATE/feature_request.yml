@@ -1,0 +1,34 @@
+name: Feature request
+description: Suggest a focused improvement that fits the native DSH workflow.
+title: "[Feature] "
+labels:
+  - "type: feature"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        dsh-omv prioritizes evidence-first workflows and native DSH surfaces. Describe the user outcome first, then the implementation shape.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What research or audit step is currently slow, unclear, or easy to lose?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed experience
+      description: Explain the smallest useful UI, command, tool, or service change.
+    validations:
+      required: true
+  - type: textarea
+    id: dsh-seam
+    attributes:
+      label: Native DSH integration point
+      description: If known, name the conversation, workspace, command, tool, settings, or Cordis seam involved.
+      placeholder: conversation.view, workspaceRegistry, /omv-..., ctx.omv...
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

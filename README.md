@@ -2,6 +2,16 @@
 
 An evidence-first vulnerability audit workbench for [DeepSeek Harness](https://deepseek-harness.github.io/deepseek-harness/develop/basic/), powered by the public `oh-my-vul` API.
 
+[![CI](https://github.com/bx33661/dsh-omv/actions/workflows/ci.yml/badge.svg)](https://github.com/bx33661/dsh-omv/actions/workflows/ci.yml)
+[![Node.js 22+](https://img.shields.io/badge/node.js-22%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2563eb.svg)](./LICENSE)
+
+[中文文档](./README.zh-CN.md) · [Architecture](./docs/architecture.md) · [DSH integration guide](./docs/dsh-integration.md)
+
+<p align="center">
+  <img src="./docs/assets/workbench-overview.png" alt="OMV Audit Desk workbench" width="960">
+</p>
+
 `OMV Audit Desk` is the product name; `dsh-omv` remains the package id for upgrade compatibility. It is a dual-face, native DSH bundle:
 
 - a Node plugin joins DSH web-server, tool, command, system-prompt, and workspace-registry services;

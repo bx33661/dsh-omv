@@ -20,6 +20,7 @@
 │   ├── workbench.ts          # 工作区聚合与动作路由
 │   ├── workbench/quality.ts  # 队列排序与质量信号投影
 │   └── *.ts                  # Workflow、Runner、Radar、Review、Dedup、Report 等领域服务
+├── tests/                    # Vitest 单元/集成测试，和生产源码分离
 ├── contracts/                # 对外 API 合同快照
 ├── docs/                     # 集成指南、架构和界面资产
 ├── cordis.patch.yml          # DSH profile 安装补丁
@@ -42,6 +43,7 @@
 - `client/ui.tsx` 放置无业务副作用的展示组件，避免页面重复绘制相同的状态/空态/弹窗。
 - `client/runtime.ts` 集中处理 API、时间、状态标签和颜色映射，页面不直接拼接 URL 或解析响应。
 - `client/styles.ts` 只使用 DSH alias 背景、边框、字体和状态色；新增视觉规则应优先落在宿主 token 上。
+- `tests/` 只引用 `../src` 的生产模块，Vitest 通过 `vitest.config.ts` 统一收集；`tsconfig.tests.json` 单独负责测试类型检查。
 
 ## 变更规则
 

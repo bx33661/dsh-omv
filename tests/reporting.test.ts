@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createFindingTemplate } from 'oh-my-vul'
-import { ReportingService } from './reporting.js'
+import { ReportingService } from '../src/reporting.js'
 
 const roots: string[] = []
 

@@ -92,4 +92,4 @@ MIT
 
 ## Project structure
 
-The source is split across the DSH host entry, client pages, UI primitives, runtime adapters, and shared contracts. See [`docs/architecture.md`](./docs/architecture.md). The repository keeps one curated workbench preview at [`docs/assets/workbench-overview.png`](./docs/assets/workbench-overview.png); build archives, local `.omv` data, and test captures are ignored.
+The source is split across the DSH host entry, client pages, UI primitives, runtime adapters, and shared contracts; all tests live under `tests/`. See [`docs/architecture.md`](./docs/architecture.md). The repository keeps one curated workbench preview at [`docs/assets/workbench-overview.png`](./docs/assets/workbench-overview.png); build archives, local `.omv` data, and test captures are ignored.

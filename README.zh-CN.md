@@ -193,4 +193,4 @@ MIT
 
 ## 项目结构
 
-源码按 Host、Client 页面、原子 UI、运行时适配和协议类型拆分，结构说明见 [`docs/architecture.md`](./docs/architecture.md)。仓库只保留一张工作台概览图：[`docs/assets/workbench-overview.png`](./docs/assets/workbench-overview.png)。构建产物、压缩包、本地 `.omv` 数据和测试日志均由 `.gitignore` 排除。
+源码按 Host、Client 页面、原子 UI、运行时适配和协议类型拆分，测试集中在独立的 `tests/` 目录，结构说明见 [`docs/architecture.md`](./docs/architecture.md)。仓库只保留一张工作台概览图：[`docs/assets/workbench-overview.png`](./docs/assets/workbench-overview.png)。构建产物、压缩包、本地 `.omv` 数据和测试日志均由 `.gitignore` 排除。

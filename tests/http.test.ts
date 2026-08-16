@@ -3,8 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { registerWorkbenchHttp, type WebServerLike } from './http.js'
-import { OmvWorkbench } from './workbench.js'
+import { registerWorkbenchHttp, type WebServerLike } from '../src/http.js'
+import { OmvWorkbench } from '../src/workbench.js'
 
 const roots: string[] = []
 

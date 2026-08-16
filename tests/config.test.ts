@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Config } from './index.js'
+import { Config } from '../src/index.js'
 
 describe('dsh-omv Cordis config', () => {
   it('materializes deployment defaults for the complete patch row', () => {

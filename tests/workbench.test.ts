@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { OmvWorkbench } from './workbench.js'
-import { CampaignRunner } from './runner.js'
+import { OmvWorkbench } from '../src/workbench.js'
+import { CampaignRunner } from '../src/runner.js'
 
 const roots: string[] = []
 

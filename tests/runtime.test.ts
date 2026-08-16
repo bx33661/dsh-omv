@@ -1,6 +1,6 @@
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
-import { inspectDshRuntime } from './runtime.js'
+import { inspectDshRuntime } from '../src/runtime.js'
 
 describe('Cordis runtime diagnostics', () => {
   it('uses the public registry and root fiber surfaces', () => {

@@ -40,9 +40,10 @@
   "scripts": {
     "clean": "node -e \"import('node:fs').then(({rmSync}) => rmSync('lib', {recursive:true,force:true}))\"",
     "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit",
     "build": "npm run clean && tsc --emitDeclarationOnly && tsdown",
     "test": "vitest run",
-    "check": "npm run typecheck && npm test && npm run build && npm pack --dry-run",
+    "check": "npm run typecheck && npm run typecheck:tests && npm test && npm run build && npm pack --dry-run",
     "prepare": "npm run build"
   },
   "engines": {

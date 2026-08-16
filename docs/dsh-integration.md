@@ -20,10 +20,10 @@
 | Bundle/profile 分层 | 包含 `dsh.bundle.patch`、稳定 `id: dsh-omv`，profile 层完整复述 config | `cordis.patch.yml`、profile dump |
 | 客户端工作区韧性 | 当前会话目录与默认目录分开显示；单个损坏 Evidence 文件会进入 `workspaceIssues`，不再拖垮整个仪表盘 | `src/workbench.ts`、`src/client/index.tsx` |
 | 原生交互可达性 | `role=tab`、快捷键 `1–9`/`0`/`/`/`R`、`⌘K/Ctrl-K` 命令面板、对话框语义、可关闭 Toast、加载与错误 `aria-live` | `src/client/index.tsx`、`src/client/styles.ts` |
-| 原生轨迹工作台 | `轨迹` 页复用 `DashboardPayload.activity` 与 DSH `JobView`，提供 Duration / Turns / Calls 密度图、Evidence / Workflow / Tools 分层、事件流搜索筛选、Native tasks 卡片与减少动态模式 | `src/client/index.tsx`、`src/client/styles.ts` |
+| 最近变更 | 总览页复用 `DashboardPayload.activity` 展示最新证据写入与工作流动作；DSH `JobView` 任务状态在总览与工具栏呈现 | `src/client/pages.tsx` |
 | DSH 原生视觉系统 | 宿主 alias 色板、图标导航、吸顶工作台 chrome、证据卡片层级、详情抽屉与移动端断点；通过父级滚动容器约束避免工作台内容撑高会话页 | `src/client/index.tsx`、`src/client/styles.ts` |
 | 同步反馈 | SSE 实时状态、最近同步时间、断线轮询、静默刷新失败提示和显式重试 | `src/client/index.tsx` |
-| 研究闭环 | 质量中心、复现实验室、Campaign Graph、去重、协作评审、报告草稿/provenance 与披露时间线均复用 `ActionRequest`、HTTP 和原生 Tool/Command | `src/workbench.ts`, `src/collaboration.ts`, `src/dedup.ts`, `src/reporting.ts` |
+| 研究闭环 | 质量中心、复现实验室、Campaign Graph、去重与报告材料状态均复用 `ActionRequest`、HTTP 和原生 Tool/Command；报告草稿与披露时间线由 omv-report / omv-disclose Agent 工作流产出 | `src/workbench.ts`, `src/dedup.ts`, `src/reporting.ts` |
 
 ## 下一阶段的原生融合方向
 

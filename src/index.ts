@@ -38,8 +38,6 @@ export interface Config {
   refreshIntervalMs?: number
   /** Default maximum number of concurrently running Campaign lane sessions. */
   campaignConcurrency?: number
-  /** Optional automatic local Radar refresh cadence; zero disables scheduling. */
-  radarIntervalMs?: number
   /** Debounce window for workspace change events. */
   watchDebounceMs?: number
   /** SSE heartbeat cadence. */
@@ -56,7 +54,6 @@ export const Config: Schema<Config> = Schema.object({
   activityLimit: Schema.number().step(1).min(1).default(60),
   refreshIntervalMs: Schema.number().step(1).min(0).default(15_000),
   campaignConcurrency: Schema.number().step(1).min(1).max(8).default(3),
-  radarIntervalMs: Schema.number().step(1).min(0).default(0),
   watchDebounceMs: Schema.number().step(1).min(0).max(10_000).default(90),
   eventHeartbeatMs: Schema.number().step(1).min(1).max(300_000).default(20_000),
   httpBodyLimitBytes: Schema.number().step(1).min(4_096).max(16 * 1024 * 1024).default(256 * 1024),
@@ -71,7 +68,6 @@ export function apply(ctx: Context, config: Config = {}): void {
     activityLimit: positiveInteger(config.activityLimit ?? 60, 'activityLimit'),
     refreshIntervalMs: nonNegativeInteger(config.refreshIntervalMs ?? 15_000, 'refreshIntervalMs'),
     campaignConcurrency: boundedInteger(config.campaignConcurrency ?? 3, 1, 8, 'campaignConcurrency'),
-    radarIntervalMs: nonNegativeInteger(config.radarIntervalMs ?? 0, 'radarIntervalMs'),
     watchDebounceMs: boundedInteger(config.watchDebounceMs ?? 90, 0, 10_000, 'watchDebounceMs'),
     eventHeartbeatMs: boundedInteger(config.eventHeartbeatMs ?? 20_000, 1, 300_000, 'eventHeartbeatMs'),
     httpBodyLimitBytes: boundedInteger(config.httpBodyLimitBytes ?? 256 * 1024, 4_096, 16 * 1024 * 1024, 'httpBodyLimitBytes'),
@@ -89,17 +85,6 @@ export function apply(ctx: Context, config: Config = {}): void {
     unregisterHttp()
     omv.close()
   }, 'dsh-omv: workspace watchers')
-  if (resolved.radarIntervalMs > 0 && resolved.allowMutations) {
-    ctx.effect(() => {
-      const timer = setInterval(() => {
-        void workbench.radar().then(radar => radar.watchlistExists && radar.watch.length > 0
-          ? workbench.action({ action: 'radar.refresh' })
-          : undefined).catch(() => undefined)
-      }, resolved.radarIntervalMs)
-      timer.unref()
-      return () => clearInterval(timer)
-    }, 'dsh-omv: radar scheduler')
-  }
   registerOmvTools(ctx, workbench, () => inspectDshRuntime(ctx))
   registerOmvCommands(ctx, workbench, () => inspectDshRuntime(ctx))
   ctx.on('tools/result', (exec: Readonly<ToolExecution>, result: Readonly<ToolExecutionResult>) => {
@@ -120,10 +105,10 @@ export function apply(ctx: Context, config: Config = {}): void {
       'Use omv_workspace_overview to orient, omv_finding_inspect before changing a finding,',
       'omv_workflow_link when one finding becomes the session focus, omv_finding_repro_init before reproduction,',
       'omv_finding_validate after evidence edits, and omv_finding_create only for a new candidate.',
-      'For campaign work inspect and seed the Campaign before delegating one lane per subagent; use omv_radar_overview only for passive intelligence and omv_workspace_search to recover prior evidence.',
+      'For campaign work inspect and seed the Campaign before delegating one lane per subagent; use omv_workspace_search to recover prior evidence.',
       'Campaign Runner lanes are durable DSH sessions: inspect them with omv_campaign_run_inspect and always commit an outcome with omv_campaign_lane_update before a lane ends.',
       'Use omv_evidence_graph and omv_quality_gate to verify provenance and report readiness; bracket every local reproduction with omv_repro_run_start and omv_repro_run_finish.',
-      'Use omv_quality_overview to triage the workspace queue, omv_dedup_scan before a report, omv_review_update and omv_review_note for human review, omv_report_prepare for a durable draft, and omv_disclosure_schedule for a tracked disclosure checkpoint.',
+      'Use omv_quality_overview to triage the workspace queue and omv_dedup_scan before submission; report drafts and disclosure timelines belong to the omv-report and omv-disclose Agent workflows.',
       'If a DSH capability appears missing or a plugin is waiting, use omv_runtime_status to inspect Cordis Fiber dependencies before retrying.',
       'Treat Evidence.v1 source -> sink -> guard and observed reproduction as the canonical audit state.',
       'Keep unknown evidence explicit; describe maturity by evidence dimensions and report exact next actions instead of treating a single score as completion.',
@@ -208,11 +193,6 @@ export type {
   EvidencePhase,
   ReproductionRun,
   ReproductionRunStatus,
-  RadarEvent,
-  RadarPayload,
-  RadarWatchEntry,
-  RadarQueueItem,
-  RadarQueueStatus,
   SearchHit,
   OmvWorkbenchConfig,
   AuditStage,
@@ -222,17 +202,12 @@ export type {
   WorkflowIntent,
   WorkspaceChangeEvent,
   WorkspaceExportPayload,
-  ReviewStatus,
-  ReviewNote,
-  ReviewRecord,
-  ReviewQueueItem,
   DedupStatus,
   DedupMatch,
   DedupSummary,
   ReportPackStatus,
   ReportPack,
   ReportQueueItem,
-  DisclosurePlan,
   WorkspaceQualityIssue,
   WorkspaceQualityPayload,
 } from './contracts.js'

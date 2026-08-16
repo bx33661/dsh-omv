@@ -24,7 +24,6 @@ describe('native OMV Cordis service', () => {
       activityLimit: 20,
       refreshIntervalMs: 0,
       campaignConcurrency: 3,
-      radarIntervalMs: 0,
       watchDebounceMs: 90,
       eventHeartbeatMs: 20_000,
       httpBodyLimitBytes: 256 * 1024,

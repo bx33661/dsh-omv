@@ -36,7 +36,6 @@ import type {
   FindingPayload,
   WorkbenchFindingSummary,
   OmvWorkbenchConfig,
-  RadarPayload,
   SearchHit,
   WorkspaceExportPayload,
   WorkspaceChangeEvent,
@@ -44,14 +43,9 @@ import type {
   CampaignIssue,
   WorkspaceQualityIssue,
   WorkspaceQualityPayload,
-  ReviewQueueItem,
   ReportQueueItem,
-  ReviewRecord,
   DedupSummary,
-  ReportPack,
-  ReviewStatus,
   DedupStatus,
-  DisclosurePlan,
   WorkflowIntent,
   HealthCheck,
   HealthPayload,
@@ -59,17 +53,15 @@ import type {
 import { WORKBENCH_PROTOCOL_VERSION } from './contracts.js'
 import { OmvWorkflowService, deriveAuditStage } from './workflow.js'
 import { OmvWorkspaceWatcher } from './watch.js'
-import { radarQueueItem, readRadar, refreshRadar, updateRadarQueue } from './radar.js'
 import { CampaignRunner, type LaneEvidenceState } from './runner.js'
 import { ReproductionService } from './reproduction.js'
 import { buildEvidenceGraph, evaluateQualityGate } from './evidence-graph.js'
 
 import { inspectCampaigns, normalizeCampaignEcosystem, repairCampaign } from './campaigns.js'
-import { CollaborationService } from './collaboration.js'
 import { DedupService, type DedupCandidate } from './dedup.js'
 import { ReportingService } from './reporting.js'
 import { assessEvidence } from './assessment.js'
-import { buildWorkspaceQuality, evidenceQueueRank, readFindingWorkflowsSafe, reportQueueItem, reportQueueRank, reviewQueueItem, reviewQueueRank } from './workbench/quality.js'
+import { buildWorkspaceQuality, evidenceQueueRank, readFindingWorkflowsSafe, reportQueueItem, reportQueueRank } from './workbench/quality.js'
 
 const MUTATIONS = new Set([
   'workspace.init',
@@ -88,20 +80,13 @@ const MUTATIONS = new Set([
   'campaign.run.lane.update',
   'campaign.run.control',
   'campaign.run.reconcile',
-  'radar.refresh',
-  'radar.queue.update',
-  'radar.queue.convert',
   'repro.run.start',
   'repro.run.finish',
   'session.link',
   'session.unlink',
   'workflow.start',
-  'review.update',
-  'review.note.add',
   'dedup.scan',
   'dedup.update',
-  'report.prepare',
-  'disclosure.schedule',
 ])
 
 const DASHBOARD_CACHE_TTL_MS = 1_000
@@ -111,7 +96,6 @@ export class OmvWorkbench {
   readonly workflow: OmvWorkflowService
   readonly runner: CampaignRunner
   readonly reproduction: ReproductionService
-  readonly collaboration: CollaborationService
   readonly dedup: DedupService
   readonly reporting: ReportingService
   private readonly watcher: OmvWorkspaceWatcher
@@ -123,7 +107,6 @@ export class OmvWorkbench {
     this.workflow = new OmvWorkflowService(this.config.projectRoot)
     this.runner = new CampaignRunner(this.config.projectRoot)
     this.reproduction = new ReproductionService(this.config.projectRoot)
-    this.collaboration = new CollaborationService(this.config.projectRoot)
     this.dedup = new DedupService(this.config.projectRoot)
     this.reporting = new ReportingService(this.config.projectRoot)
     this.watcher = new OmvWorkspaceWatcher(this.config.projectRoot, this.config.watchDebounceMs)
@@ -188,16 +171,10 @@ export class OmvWorkbench {
     const totalReadiness = findings.reduce((sum, finding) => sum + finding.readiness, 0)
     const averageReadiness = findings.length === 0 ? 0 : Math.round(totalReadiness / findings.length)
     const activity = rawActivity.slice(-this.config.activityLimit).reverse()
-    const [reviewRecords, dedupSummaries, disclosures] = await Promise.all([
-      this.collaboration.list(),
-      this.dedup.list(),
-      this.reporting.disclosureList(),
-    ])
-    const reviewByFinding = new Map(reviewRecords.map(record => [record.findingId, record]))
+    const dedupSummaries = await this.dedup.list()
     const dedupByFinding = new Map(dedupSummaries.map(summary => [summary.findingId, summary]))
     const reportQueue = (await Promise.all(findings.map(async finding => reportQueueItem(await this.reporting.inspect(finding.id), finding)))).sort((left, right) => reportQueueRank(left) - reportQueueRank(right))
-    const reviews = findings.map(finding => reviewQueueItem(finding.id, reviewByFinding.get(finding.id))).sort((left, right) => reviewQueueRank(left) - reviewQueueRank(right))
-    const quality = buildWorkspaceQuality({ workspaceIssues, campaignIssues, findings, reports: reportQueue, reviews, dedup: dedupByFinding })
+    const quality = buildWorkspaceQuality({ workspaceIssues, campaignIssues, findings, reports: reportQueue, dedup: dedupByFinding })
 
     return {
       protocolVersion: WORKBENCH_PROTOCOL_VERSION,
@@ -233,9 +210,6 @@ export class OmvWorkbench {
       campaignIssues,
       activity,
       quality,
-      reviews,
-      reports: reportQueue,
-      disclosures,
       reproductionRuns,
     }
   }
@@ -269,14 +243,11 @@ export class OmvWorkbench {
     const raw = await readFile(detail.path, 'utf8')
     const parsed = parseYaml(raw)
     const evidence = isRecord(parsed) ? parsed : {}
-    const [links, history, reproductionRuns, collaboration, dedup, reportPack, disclosures] = await Promise.all([
+    const [links, history, reproductionRuns, dedup] = await Promise.all([
       this.workflow.links(),
       this.workflow.history(detail.id),
       this.reproduction.list(detail.id),
-      this.collaboration.get(detail.id),
       this.dedup.get(detail.id),
-      this.reporting.inspect(detail.id),
-      this.reporting.disclosureList(detail.id),
     ])
     const sessionLink = links[detail.id]
     const lastDiff = history.find(event => event.diff !== undefined)?.diff
@@ -296,9 +267,6 @@ export class OmvWorkbench {
         qualityGate,
         graph: buildEvidenceGraph({ detail, evidence, rawEvidence: raw, history, reproductionRuns }),
         dedup,
-        collaboration,
-        reportPack,
-        disclosures,
         ...(sessionLink === undefined ? {} : { sessionLink }),
         ...(lastDiff === undefined ? {} : { lastDiff }),
       }
@@ -324,9 +292,6 @@ export class OmvWorkbench {
       qualityGate,
       graph: buildEvidenceGraph({ detail, evidence, rawEvidence: raw, history, reproductionRuns }),
       dedup,
-      collaboration,
-      reportPack,
-      disclosures,
       ...(sessionLink === undefined ? {} : { sessionLink }),
       ...(lastDiff === undefined ? {} : { lastDiff }),
     }
@@ -351,17 +316,8 @@ export class OmvWorkbench {
     return this.runner.get(id)
   }
 
-  async radar(): Promise<RadarPayload> {
-    return readRadar(this.config.projectRoot)
-  }
-
   async quality(): Promise<WorkspaceQualityPayload> {
     return (await this.dashboard()).quality
-  }
-
-  async review(findingId: string): Promise<ReviewRecord> {
-    await showFinding(findingId, this.config.projectRoot)
-    return this.collaboration.get(findingId)
   }
 
   async dedupSummary(findingId: string): Promise<DedupSummary> {
@@ -369,19 +325,10 @@ export class OmvWorkbench {
     return this.dedup.get(findingId)
   }
 
-  async reportPack(findingId: string): Promise<ReportPack> {
-    await showFinding(findingId, this.config.projectRoot)
-    return this.reporting.inspect(findingId)
-  }
-
-  async disclosures(findingId?: string): Promise<DisclosurePlan[]> {
-    return this.reporting.disclosureList(findingId)
-  }
-
   async search(query: string): Promise<SearchHit[]> {
     const needle = query.trim().toLowerCase()
     if (needle === '') return []
-    const [dashboard, radar] = await Promise.all([this.dashboard(), this.radar()])
+    const dashboard = await this.dashboard()
     const hits: SearchHit[] = []
     for (const finding of dashboard.findings) {
       const rawEvidence = await readFile(finding.path, 'utf8')
@@ -400,22 +347,17 @@ export class OmvWorkbench {
       const haystack = JSON.stringify(entry).toLowerCase()
       if (haystack.includes(needle)) hits.push({ kind: 'activity', id: `${entry.timestamp}-${index}`, title: entry.action, description: `${entry.id ?? ''} · ${entry.timestamp}`, score: searchScore(haystack, needle) })
     })
-    radar.events.forEach(event => {
-      const haystack = `${event.id} ${event.ecosystem} ${event.package ?? ''} ${event.keyword ?? ''} ${event.title} ${event.severity ?? ''}`.toLowerCase()
-      if (haystack.includes(needle)) hits.push({ kind: 'radar', id: event.id, title: event.title, description: `${event.ecosystem} · ${event.source}`, score: searchScore(haystack, needle) })
-    })
     return hits.sort((left, right) => right.score - left.score || left.title.localeCompare(right.title)).slice(0, 80)
   }
 
   async exportWorkspace(): Promise<WorkspaceExportPayload> {
     const dashboard = await this.dashboard()
-    const [findings, campaigns, radar, campaignRuns, reproductionRuns] = await Promise.all([
+    const [findings, campaigns, campaignRuns, reproductionRuns] = await Promise.all([
       Promise.all([
         ...dashboard.findings.map(finding => this.finding(finding.id)),
         ...dashboard.archived.map(finding => this.finding(finding.id, true)),
       ]),
       Promise.all(dashboard.campaigns.map(campaign => this.campaign(campaign.id))),
-      this.radar(),
       this.runner.list(),
       this.reproduction.list(),
     ])
@@ -426,7 +368,6 @@ export class OmvWorkbench {
       dashboard,
       findings,
       campaigns,
-      radar,
       campaignRuns,
       reproductionRuns,
     }
@@ -460,10 +401,6 @@ export class OmvWorkbench {
         return this.quality()
       case 'finding.dedup':
         return this.dedupSummary(requiredString(request.id, 'id'))
-      case 'report.inspect':
-        return this.reportPack(requiredString(request.id, 'id'))
-      case 'review.inspect':
-        return this.review(requiredString(request.id, 'id'))
       case 'finding.repro':
         result = await initReproArtifacts(requiredString(request.id, 'id'), this.config.projectRoot)
         break
@@ -541,28 +478,6 @@ export class OmvWorkbench {
         const run = await this.runner.get(requiredString(request.runId, 'runId'))
         return this.runner.reconcile(run.id, await this.laneEvidenceStates(run.lanes.map(lane => lane.findingId)))
       }
-      case 'radar.refresh':
-        return refreshRadar(this.config.projectRoot)
-      case 'radar.queue.update':
-        return updateRadarQueue(this.config.projectRoot, requiredString(request.id, 'id'), requiredRadarStatus(request.radarStatus))
-      case 'radar.queue.convert': {
-        const queue = await radarQueueItem(this.config.projectRoot, requiredString(request.id, 'id'))
-        const radar = await this.radar()
-        const event = radar.events.find(item => item.id === queue.eventId)
-        if (event === undefined) throw new Error(`radar event not found: ${queue.eventId}`)
-        const findingId = request.findingId?.trim() || radarFindingId(event)
-        const created = await createFindingTemplate(findingId, {
-          projectRoot: this.config.projectRoot,
-          seed: {
-            researcherGoal: 'triage',
-            product: event.package ?? event.keyword ?? event.title,
-            ecosystem: radarEvidenceEcosystem(event.ecosystem),
-            vulnerabilityClass: event.type === 'watchlist' ? 'security-change' : event.type,
-          },
-        })
-        await updateRadarQueue(this.config.projectRoot, queue.id, 'candidate', findingId)
-        return { queueId: queue.id, event, findingId, created }
-      }
       case 'repro.run.start': {
         const id = requiredString(request.id, 'id')
         await showFinding(id, this.config.projectRoot)
@@ -607,50 +522,15 @@ export class OmvWorkbench {
         const payload = await this.finding(id)
         return this.workflow.start(payload.detail, payload.evidence, intent, requiredString(request.sessionId, 'sessionId'))
       }
-      case 'review.update': {
-        const id = requiredString(request.id, 'id')
-        await showFinding(id, this.config.projectRoot)
-        result = await this.collaboration.update({
-          findingId: id,
-          ...(request.reviewStatus === undefined ? {} : { status: request.reviewStatus }),
-          ...(request.assignee === undefined ? {} : { assignee: request.assignee }),
-          ...(request.sessionId === undefined ? {} : { reviewer: request.sessionId }),
-        })
-        break
-      }
-      case 'review.note.add': {
-        const id = requiredString(request.id, 'id')
-        await showFinding(id, this.config.projectRoot)
-        result = await this.collaboration.addNote({ findingId: id, author: request.author ?? request.sessionId ?? 'dsh-reviewer', body: requiredString(request.body, 'body') })
-        break
-      }
       case 'dedup.scan': {
         const id = requiredString(request.id, 'id')
         const dashboard = await this.dashboard()
         const candidates: DedupCandidate[] = dashboard.findings.map(finding => ({ id: finding.id, package: finding.package, ecosystem: finding.ecosystem, vulnerability: finding.vulnerability, path: finding.path }))
-        const radar = await this.radar()
-        result = await this.dedup.scan(id, candidates, radar.events.map(event => event.title))
+        result = await this.dedup.scan(id, candidates)
         break
       }
       case 'dedup.update': {
         result = await this.dedup.update(requiredString(request.id, 'id'), requiredDedupStatus(request.dedupStatus), request.matchId)
-        break
-      }
-      case 'report.prepare': {
-        const id = requiredString(request.id, 'id')
-        result = await this.reporting.prepare(id)
-        break
-      }
-      case 'disclosure.schedule': {
-        const id = requiredString(request.id, 'id')
-        await showFinding(id, this.config.projectRoot)
-        result = await this.reporting.schedule({
-          findingId: id,
-          channel: request.disclosureChannel ?? 'internal',
-          dueAt: requiredString(request.disclosureDate, 'disclosureDate'),
-          ...(request.target === undefined ? {} : { recipient: request.target }),
-          ...(request.body === undefined ? {} : { notes: request.body }),
-        })
         break
       }
       default:
@@ -783,28 +663,9 @@ function requiredReproFinishStatus(value: ActionRequest['reproStatus']): 'passed
   throw new Error('reproStatus must be passed, failed, or blocked')
 }
 
-function requiredRadarStatus(value: ActionRequest['radarStatus']): 'new' | 'reviewing' | 'candidate' | 'ignored' {
-  if (value === 'new' || value === 'reviewing' || value === 'candidate' || value === 'ignored') return value
-  throw new Error('radarStatus must be new, reviewing, candidate, or ignored')
-}
-
 function requiredDedupStatus(value: ActionRequest['dedupStatus']): DedupStatus {
   if (value === 'unknown' || value === 'clear' || value === 'possible_duplicate' || value === 'duplicate' || value === 'not_applicable') return value
   throw new Error('dedupStatus must be unknown, clear, possible_duplicate, duplicate, or not_applicable')
-}
-
-function radarFindingId(event: { ecosystem: string; package?: string; keyword?: string; id: string }): string {
-  const raw = `radar-${event.ecosystem}-${event.package ?? event.keyword ?? event.id}`.toLowerCase()
-  return raw.replace(/[^a-z0-9]+/gu, '-').replace(/^-|-$/gu, '').slice(0, 72)
-}
-
-function radarEvidenceEcosystem(value: string): EvidenceEcosystem {
-  // Accept registry aliases (pip, pypi, cargo, …) the same way Campaign creation does.
-  const normalized = normalizeCampaignEcosystem(value.trim().toLowerCase())
-  if (!(EVIDENCE_ECOSYSTEMS as readonly string[]).includes(normalized)) {
-    throw new Error(`Radar event ecosystem is not supported by Evidence.v1: ${value}`)
-  }
-  return normalized as EvidenceEcosystem
 }
 
 function completeSeed(request: ActionRequest): {

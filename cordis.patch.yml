@@ -12,7 +12,6 @@
         activityLimit: 60
         refreshIntervalMs: 15000
         campaignConcurrency: 3
-        radarIntervalMs: 0
         watchDebounceMs: 90
         eventHeartbeatMs: 20000
         httpBodyLimitBytes: 262144

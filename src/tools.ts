@@ -239,19 +239,6 @@ export function registerOmvTools(ctx: Context, workbench: OmvWorkbench, runtimeS
   }))
 
   register(defineTool({
-    name: 'omv_radar_overview',
-    description: 'Read the current OMV passive-intelligence watchlist and recent Radar events.',
-    parameters: {},
-    output: stringOutput(),
-    async execute(_args, exec) {
-      return pretty(await scoped(workbench, exec.agent?.session.header.cwd).radar())
-    },
-    presentCall: () => ({ card: 'generic', title: '读取 OMV Radar', kind: 'read' }),
-    presentResult: (_args, result) => ({ card: 'generic', title: 'OMV Radar', content: result.content }),
-    isConcurrencySafe: () => true,
-  }))
-
-  register(defineTool({
     name: 'omv_workspace_search',
     description: 'Search across OMV Evidence files, archived findings, campaigns, Radar events, and workspace activity.',
     parameters: { query: { type: 'string', required: true, description: 'Literal search phrase.' } },
@@ -351,72 +338,6 @@ export function registerOmvTools(ctx: Context, workbench: OmvWorkbench, runtimeS
   }))
 
   register(defineTool({
-    name: 'omv_review_update',
-    description: 'Update a finding review status and optional assignee, keeping collaboration state durable.',
-    parameters: {
-      id: { type: 'string', required: true, description: 'Finding id.' },
-      status: { type: 'string', required: true, description: 'unreviewed, in_review, changes_requested, approved, or rejected.' },
-      assignee: { type: 'string', description: 'Optional reviewer or owner.' },
-    },
-    output: stringOutput(),
-    async execute(args, exec) {
-      const sessionId = exec.agent?.session.header.id
-      return pretty(await scoped(workbench, exec.agent?.session.header.cwd).action({ action: 'review.update', id: args.id, reviewStatus: reviewStatus(args.status), ...(args.assignee === undefined ? {} : { assignee: args.assignee }), ...(sessionId === undefined ? {} : { sessionId }) }))
-    },
-    presentCall: args => ({ card: 'generic', title: `更新协作评审 · ${args.id}`, kind: 'edit', rawInput: args, locations: [findingLocation(args.id), { path: '.omv/.dsh/reviews.json' }] }),
-    presentResult: (args, result) => ({ card: 'generic', title: `协作评审已更新 · ${args.id}`, content: result.content }),
-  }))
-
-  register(defineTool({
-    name: 'omv_review_note',
-    description: 'Append a durable review note to a finding for later audit and report context.',
-    parameters: {
-      id: { type: 'string', required: true, description: 'Finding id.' },
-      body: { type: 'string', required: true, description: 'Review note body.' },
-      author: { type: 'string', description: 'Optional author label.' },
-    },
-    output: stringOutput(),
-    async execute(args, exec) {
-      const sessionId = exec.agent?.session.header.id
-      return pretty(await scoped(workbench, exec.agent?.session.header.cwd).action({ action: 'review.note.add', id: args.id, body: args.body, ...(args.author === undefined ? {} : { author: args.author }), ...(sessionId === undefined ? {} : { sessionId }) }))
-    },
-    presentCall: args => ({ card: 'generic', title: `记录评审意见 · ${args.id}`, kind: 'edit', rawInput: args, locations: [findingLocation(args.id), { path: '.omv/.dsh/reviews.json' }] }),
-    presentResult: (args, result) => ({ card: 'generic', title: `评审意见已记录 · ${args.id}`, content: result.content }),
-  }))
-
-  register(defineTool({
-    name: 'omv_report_prepare',
-    description: 'Generate or refresh a report draft and provenance pack for a finding.',
-    parameters: { id: { type: 'string', required: true, description: 'Finding id.' } },
-    output: stringOutput(),
-    async execute(args, exec) {
-      const sessionId = exec.agent?.session.header.id
-      return pretty(await scoped(workbench, exec.agent?.session.header.cwd).action({ action: 'report.prepare', id: args.id, ...(sessionId === undefined ? {} : { sessionId }) }))
-    },
-    presentCall: args => ({ card: 'generic', title: `准备报告材料 · ${args.id}`, kind: 'edit', rawInput: args.id, locations: [findingLocation(args.id), { path: `.omv/reports/${args.id}` }] }),
-    presentResult: (args, result) => ({ card: 'generic', title: `报告材料已准备 · ${args.id}`, content: result.content }),
-  }))
-
-  register(defineTool({
-    name: 'omv_disclosure_schedule',
-    description: 'Schedule a vendor, CNA, public, or internal disclosure checkpoint for a finding.',
-    parameters: {
-      id: { type: 'string', required: true, description: 'Finding id.' },
-      date: { type: 'string', required: true, description: 'Due date in YYYY-MM-DD format.' },
-      channel: { type: 'string', required: true, description: 'vendor, cna, public, or internal.' },
-      recipient: { type: 'string', description: 'Optional recipient or tracking destination.' },
-      notes: { type: 'string', description: 'Optional timeline notes.' },
-    },
-    output: stringOutput(),
-    async execute(args, exec) {
-      const sessionId = exec.agent?.session.header.id
-      return pretty(await scoped(workbench, exec.agent?.session.header.cwd).action({ action: 'disclosure.schedule', id: args.id, disclosureDate: args.date, disclosureChannel: disclosureChannel(args.channel), ...(args.recipient === undefined ? {} : { target: args.recipient }), ...(args.notes === undefined ? {} : { body: args.notes }), ...(sessionId === undefined ? {} : { sessionId }) }))
-    },
-    presentCall: args => ({ card: 'generic', title: `排期披露节点 · ${args.id}`, kind: 'edit', rawInput: args, locations: [{ path: '.omv/.dsh/disclosures.json' }] }),
-    presentResult: (args, result) => ({ card: 'generic', title: `披露节点已排期 · ${args.id}`, content: result.content }),
-  }))
-
-  register(defineTool({
     name: 'omv_repro_run_start',
     description: 'Start a durable reproduction attempt and correlate it with the current DSH session.',
     parameters: {
@@ -463,23 +384,6 @@ export function registerOmvTools(ctx: Context, workbench: OmvWorkbench, runtimeS
     presentResult: (args, result) => ({ card: 'generic', title: `复现 Run 已完成 · ${args.runId}`, content: result.content }),
   }))
 
-  register(defineTool({
-    name: 'omv_radar_candidate',
-    description: 'Convert a reviewed Radar queue signal into a new Evidence.v1 candidate finding.',
-    parameters: {
-      queueId: { type: 'string', required: true, description: 'Radar queue item id.' },
-      findingId: { type: 'string', description: 'Optional explicit finding id.' },
-    },
-    output: stringOutput(),
-    async execute(args, exec) {
-      return pretty(await scoped(workbench, exec.agent?.session.header.cwd).action({
-        action: 'radar.queue.convert', id: args.queueId,
-        ...(args.findingId === undefined ? {} : { findingId: args.findingId }),
-      }))
-    },
-    presentCall: args => ({ card: 'generic', title: `Radar → Candidate · ${args.queueId}`, kind: 'edit', rawInput: args }),
-    presentResult: (args, result) => ({ card: 'generic', title: `Radar Candidate 已创建 · ${args.queueId}`, content: result.content }),
-  }))
 }
 
 function scoped(workbench: OmvWorkbench, cwd: string | undefined): OmvWorkbench {
@@ -541,16 +445,6 @@ function laneUpdateStatus(value: string): 'completed' | 'failed' | 'blocked' | '
 function reproFinishStatus(value: string): 'passed' | 'failed' | 'blocked' {
   if (value === 'passed' || value === 'failed' || value === 'blocked') return value
   throw new Error('status must be passed, failed, or blocked')
-}
-
-function reviewStatus(value: string): 'unreviewed' | 'in_review' | 'changes_requested' | 'approved' | 'rejected' {
-  if (value === 'unreviewed' || value === 'in_review' || value === 'changes_requested' || value === 'approved' || value === 'rejected') return value
-  throw new Error('status must be unreviewed, in_review, changes_requested, approved, or rejected')
-}
-
-function disclosureChannel(value: string): 'vendor' | 'cna' | 'public' | 'internal' {
-  if (value === 'vendor' || value === 'cna' || value === 'public' || value === 'internal') return value
-  throw new Error('channel must be vendor, cna, public, or internal')
 }
 
 function csv(value: string): string[] { return value.split(/[,\n]/u).map(item => item.trim()).filter(Boolean) }

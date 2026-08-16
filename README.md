@@ -28,16 +28,16 @@ An evidence-first vulnerability audit workbench for [DeepSeek Harness](https://d
 - Doctor issues, review verdicts, open questions, and exact next actions without circular score deductions
 - Durable Campaign Runner with bounded concurrency, one native DSH forked session per lane, pause/resume/cancel/retry, and restart recovery
 - Provenance-aware Evidence Graph, stage-aware report conditions, and structured reproduction runs
-- Dedicated quality center, reproduction lab, dedup intelligence, collaborative review queue, report/disclosure center, and Campaign Graph
+- Dedicated quality center, reproduction lab, dedup intelligence, report-readiness signals, and Campaign Graph
 - DSH-native visual system that uses the host background layers, borders, typography, and alias colors directly, with calm hierarchy, sticky workbench chrome, and responsive mobile breakpoints
 - Campaign outcomes distinguish completed work from blocked lanes that still need attention
 - Campaign compatibility diagnostics isolate malformed YAML, normalize common registry aliases, and repair derived metadata from the workbench
-- Passive Radar watchlists/events, triage queue and Candidate conversion, workspace-wide search, and native DSH Job status with contextual repair-and-retry
+- Workspace-wide search, recent activity feed, and native DSH Job status with contextual repair-and-retry
 - SSE workspace synchronization with polling fallback
-- Native Trace workspace with Duration / Turns / Calls density modes, Evidence / Workflow / Tools lanes, searchable event stream, and reduced-motion-friendly animations
+- Recent workspace activity surfaced on the overview page
 - Candidate creation, validation, reproduction scaffolding, promotion, and restore actions
-- 28 model tools covering workspace quality, DSH lifecycle diagnostics, Finding, workflow, Campaign Runtime, evidence provenance, reproduction, dedup, review, reporting, Radar, and search
-- 23 durable `/omv*` commands, including `omv-dedup`, `omv-review`, `omv-report`, and `omv-disclose`
+- 22 model tools covering workspace quality, DSH lifecycle diagnostics, Finding, workflow, Campaign Runtime, evidence provenance, reproduction, dedup, and search
+- 19 durable `/omv*` commands, including `omv-dedup` and the Campaign Runtime set
 - Automatic binding to the current DSH session workspace
 - Native tool presentation and an evidence-first Agent system-prompt section
 - Central cooperative cancellation guards on every native OMV tool invocation
@@ -70,7 +70,6 @@ Override the row in `$DSH_HOME/profiles/web/cordis.patch.yml`:
     activityLimit: 60
     refreshIntervalMs: 15000
     campaignConcurrency: 3
-    radarIntervalMs: 0
     watchDebounceMs: 90
     eventHeartbeatMs: 20000
     httpBodyLimitBytes: 262144

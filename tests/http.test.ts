@@ -24,8 +24,7 @@ describe('workbench HTTP bridge', () => {
       activityLimit: 10,
       refreshIntervalMs: 1234,
       campaignConcurrency: 3,
-      radarIntervalMs: 0,
-      watchDebounceMs: 10,
+        watchDebounceMs: 10,
       eventHeartbeatMs: 200,
       httpBodyLimitBytes: 256 * 1024,
     })
@@ -63,8 +62,8 @@ describe('workbench HTTP bridge', () => {
       await expect(dashboardResponse.json()).resolves.toMatchObject({ ok: true, data: { protocolVersion: '2', metrics: { activeRuns: 1 } } })
 
       const qualityResponse = await fetch(`http://127.0.0.1:${address.port}/api/dsh-omv/quality`)
-      await expect(qualityResponse.json()).resolves.toMatchObject({ ok: true, data: { score: expect.any(Number), queues: expect.objectContaining({ needsReview: expect.any(Number) }) } })
-      for (const endpoint of ['review?id=http-finding', 'dedup?id=http-finding', 'report?id=http-finding', 'disclosures?id=http-finding', 'reproductions']) {
+      await expect(qualityResponse.json()).resolves.toMatchObject({ ok: true, data: { score: expect.any(Number), queues: expect.objectContaining({ needsDedup: expect.any(Number) }) } })
+      for (const endpoint of ['dedup?id=http-finding', 'reproductions']) {
         const response = await fetch(`http://127.0.0.1:${address.port}/api/dsh-omv/${endpoint}`)
         expect(response.status).toBe(200)
         await expect(response.json()).resolves.toMatchObject({ ok: true })
@@ -79,10 +78,6 @@ describe('workbench HTTP bridge', () => {
       const runResponse = await fetch(`http://127.0.0.1:${address.port}/api/dsh-omv/campaign-run?id=${campaignRun.id}`)
       expect(runResponse.status).toBe(200)
       await expect(runResponse.json()).resolves.toMatchObject({ ok: true, data: { id: campaignRun.id, status: 'queued', concurrency: 1 } })
-
-      const radarResponse = await fetch(`http://127.0.0.1:${address.port}/api/dsh-omv/radar`)
-      expect(radarResponse.status).toBe(200)
-      await expect(radarResponse.json()).resolves.toMatchObject({ ok: true, data: { watchlistExists: false, events: [] } })
 
       const searchResponse = await fetch(`http://127.0.0.1:${address.port}/api/dsh-omv/search?q=not-present`)
       expect(searchResponse.status).toBe(200)

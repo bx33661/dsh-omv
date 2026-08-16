@@ -21,7 +21,6 @@ export interface OmvWorkbenchConfig {
   activityLimit: number
   refreshIntervalMs: number
   campaignConcurrency: number
-  radarIntervalMs: number
   /** Debounce window for the workspace event stream. */
   watchDebounceMs: number
   /** Heartbeat cadence for long-lived workspace event streams. */
@@ -108,12 +107,6 @@ export interface DashboardPayload {
   activity: WorkspaceActivityEntry[]
   /** Evidence-quality queue and operational blockers for the entire workspace. */
   quality: WorkspaceQualityPayload
-  /** Durable review records, exposed for the collaboration surface. */
-  reviews: ReviewQueueItem[]
-  /** Report/disclosure readiness for active findings. */
-  reports: ReportQueueItem[]
-  /** Durable disclosure checkpoints across active findings. */
-  disclosures: DisclosurePlan[]
   /** Reproduction runs across the current workspace. */
   reproductionRuns: ReproductionRun[]
 }
@@ -124,37 +117,6 @@ export interface WorkspaceIssue {
   path: string
   message: string
   recoverable: boolean
-}
-
-export type ReviewStatus = 'unreviewed' | 'in_review' | 'changes_requested' | 'approved' | 'rejected'
-
-export interface ReviewNote {
-  id: string
-  findingId: string
-  author: string
-  body: string
-  createdAt: string
-  updatedAt: string
-  resolvedAt?: string
-}
-
-export interface ReviewRecord {
-  findingId: string
-  status: ReviewStatus
-  assignee?: string
-  reviewers: string[]
-  notes: ReviewNote[]
-  updatedAt: string
-}
-
-export interface ReviewQueueItem {
-  findingId: string
-  status: ReviewStatus
-  assignee?: string
-  noteCount: number
-  latestNote?: string
-  updatedAt: string
-  nextAction: string
 }
 
 export type DedupStatus = 'unknown' | 'clear' | 'possible_duplicate' | 'duplicate' | 'not_applicable'
@@ -193,28 +155,17 @@ export interface ReportPack {
   nextAction: string
 }
 
+/** Internal readiness signal consumed by the workspace quality center. */
 export interface ReportQueueItem extends ReportPack {
   stage: AuditStage
   maturity: EvidenceMaturity
   package: string
 }
 
-export interface DisclosurePlan {
-  id: string
-  findingId: string
-  channel: 'vendor' | 'cna' | 'public' | 'internal'
-  status: 'planned' | 'sent' | 'closed'
-  dueAt: string
-  createdAt: string
-  updatedAt: string
-  recipient?: string
-  notes?: string
-}
-
 export interface WorkspaceQualityIssue {
   id: string
   severity: 'blocker' | 'warning' | 'info'
-  kind: 'finding' | 'campaign' | 'report' | 'review' | 'dedup' | 'workspace'
+  kind: 'finding' | 'campaign' | 'report' | 'dedup' | 'workspace'
   title: string
   detail: string
   path?: string
@@ -232,7 +183,6 @@ export interface WorkspaceQualityPayload {
   queues: {
     needsEvidence: number
     needsReproduction: number
-    needsReview: number
     needsDedup: number
     reportReady: number
   }
@@ -279,9 +229,6 @@ export interface FindingPayload {
   qualityGate: QualityGateResult
   reproductionRuns: ReproductionRun[]
   dedup: DedupSummary
-  collaboration: ReviewRecord
-  reportPack: ReportPack
-  disclosures: DisclosurePlan[]
 }
 
 export interface WorkflowDispatch {
@@ -464,53 +411,8 @@ export interface ReproductionRun {
   finishedAt?: string
 }
 
-export interface RadarWatchEntry {
-  ecosystem: string
-  package?: string
-  keyword?: string
-  vulnerability?: string
-}
-
-export interface RadarEvent {
-  id: string
-  observedAt: string
-  source: string
-  ecosystem: string
-  package?: string
-  keyword?: string
-  type: string
-  title: string
-  url?: string
-  severity?: string
-  publishedAt?: string
-}
-
-export interface RadarPayload {
-  protocolVersion: typeof WORKBENCH_PROTOCOL_VERSION
-  generatedAt: string
-  watchlistPath: string
-  eventsPath: string
-  watchlistExists: boolean
-  watch: RadarWatchEntry[]
-  events: RadarEvent[]
-  queue: RadarQueueItem[]
-}
-
-export type RadarQueueStatus = 'new' | 'reviewing' | 'candidate' | 'ignored'
-
-export interface RadarQueueItem {
-  id: string
-  eventId: string
-  status: RadarQueueStatus
-  score: number
-  reason: string
-  createdAt: string
-  updatedAt: string
-  findingId?: string
-}
-
 export interface SearchHit {
-  kind: 'finding' | 'campaign' | 'activity' | 'radar'
+  kind: 'finding' | 'campaign' | 'activity'
   id: string
   title: string
   description: string
@@ -525,7 +427,6 @@ export interface WorkspaceExportPayload {
   dashboard: DashboardPayload
   findings: FindingPayload[]
   campaigns: CampaignPayload[]
-  radar: RadarPayload
   campaignRuns: CampaignRun[]
   reproductionRuns: ReproductionRun[]
 }
@@ -562,22 +463,15 @@ export type MutationAction =
   | 'campaign.run.lane.update'
   | 'campaign.run.control'
   | 'campaign.run.reconcile'
-  | 'radar.refresh'
-  | 'radar.queue.update'
-  | 'radar.queue.convert'
   | 'repro.run.start'
   | 'repro.run.finish'
   | 'session.link'
   | 'session.unlink'
   | 'workflow.start'
-  | 'review.update'
-  | 'review.note.add'
   | 'dedup.scan'
   | 'dedup.update'
-  | 'report.prepare'
-  | 'disclosure.schedule'
 
-export type ReadAction = 'finding.validate' | 'finding.doctor' | 'workspace.quality' | 'finding.dedup' | 'report.inspect' | 'review.inspect'
+export type ReadAction = 'finding.validate' | 'finding.doctor' | 'workspace.quality' | 'finding.dedup'
 
 export interface ActionRequest {
   action: MutationAction | ReadAction
@@ -610,15 +504,7 @@ export interface ActionRequest {
   outputText?: string
   artifacts?: string[]
   reproStatus?: ReproductionRunStatus
-  radarStatus?: RadarQueueStatus
-  eventId?: string
   findingId?: string
-  reviewStatus?: ReviewStatus
-  author?: string
-  body?: string
-  assignee?: string
   dedupStatus?: DedupStatus
   matchId?: string
-  disclosureDate?: string
-  disclosureChannel?: 'vendor' | 'cna' | 'public' | 'internal'
 }

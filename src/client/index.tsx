@@ -12,8 +12,6 @@ import type {
   DashboardPayload,
   DedupStatus,
   FindingPayload,
-  RadarPayload,
-  ReviewStatus,
   WorkflowDispatch,
   WorkflowIntent,
   WorkspaceChangeEvent,
@@ -34,7 +32,7 @@ import type { Dialog, IconName, LauncherInjected, SettingsInjected, Tab, Workspa
 import { api, apiUrl, configuredRoot, decodeSettings, firstLine, formatTime, localDefaultTab, messageOf, normalizePath, persistDefaultTab, relativeTime, sessionRoot } from './runtime.js'
 import {
   CampaignDetail, CommandPalette, Findings, Campaigns, FindingDetail, NewCampaignDialog, NewFindingDialog, WorkbenchErrorState,
-  Overview, QualityPage, Radar, ReportsPage, ReproductionPage, ReviewPage, SearchPage, TracePage,
+  Overview, QualityPage, ReproductionPage, SearchPage,
 } from './pages.js'
 import { Icon, Loading } from './ui.js'
 
@@ -295,9 +293,9 @@ function AuditSettingsSection({ close, projectRoot, openWorkbench, openPath, set
         <div className="omv-settings-row"><span>工作区状态</span><b>{dashboard === undefined ? '同步中' : dashboard.workspace.staleIndex ? '索引需刷新' : '正常'}</b></div>
         <div className="omv-settings-row"><span>写入动作</span><b>{dashboard?.config.allowMutations === false ? '关闭' : '开启'}</b></div>
         <div className="omv-settings-row"><span>当前发现</span><b>{dashboard?.metrics.active ?? '—'}</b></div>
-        <div className="omv-settings-row"><span>Agent 能力</span><b>22 工具 · 20 命令</b></div>
+        <div className="omv-settings-row"><span>Agent 能力</span><b>22 工具 · 19 命令</b></div>
         <div className="omv-settings-row"><span>默认视图</span><select className="omv-settings-select" value={defaultTab} onChange={event => { persistDefaultTab(settings, event.target.value as Tab) }}>
-          <option value="overview">总览</option><option value="findings">漏洞</option><option value="quality">质量</option><option value="reproduction">复现</option><option value="campaigns">战役</option><option value="radar">雷达</option><option value="review">评审</option><option value="reports">交付</option><option value="activity">轨迹</option><option value="search">搜索</option>
+          <option value="overview">总览</option><option value="findings">漏洞</option><option value="quality">质量</option><option value="reproduction">复现</option><option value="campaigns">战役</option><option value="search">搜索</option>
         </select></div>
       </section>
       <div className="omv-settings-actions">
@@ -614,36 +612,8 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
     } catch (caught) { setToast({ kind: 'error', message: messageOf(caught) }) } finally { setBusy(false) }
   }, [projectRoot, pumpCampaignRun, sessions, showCampaign])
 
-  const startRadarResearch = useCallback(async () => {
-    setBusy(true)
-    try {
-      const radar = await api<RadarPayload>('/radar', undefined, projectRoot)
-      if (!radar.watchlistExists || radar.watch.length === 0) throw new Error('请先创建 .omv/radar/watchlist.yaml')
-      const subjects = radar.watch.map(item => `- ${item.ecosystem}:${item.package ?? item.keyword ?? 'unknown'} · ${item.vulnerability ?? '通用安全动态'}`).join('\n')
-      const prompt = `执行 OMV Radar 被动情报调研。读取 .omv/radar/watchlist.yaml，只查询公开公告、发行说明、NVD、GHSA、OSV 和生态数据库，不对目标服务发起探测。逐项判断 advisory、release 或 suspected-fix 信号，追加可追溯事件到 .omv/radar/events.jsonl；值得审计的信号创建 candidate Finding 并调用 omv_finding_validate。\n观察项：\n${subjects}`
-      const scope = sessions.scope(sessionId)
-      const face = scope === undefined ? undefined : sessions.sessionOf(scope)
-      if (face === undefined) throw new Error('当前 DSH 会话尚未就绪')
-      const accepted = await face.prompt([{ type: 'text', text: prompt }], 'queue')
-      if (!accepted.ok) throw new Error(`${accepted.error.code}: ${accepted.error.message}`)
-      setToast({ kind: 'ok', message: 'Radar 调研已发送到当前 DSH 会话' })
-    } catch (caught) {
-      setToast({ kind: 'error', message: messageOf(caught) })
-    } finally {
-      setBusy(false)
-    }
-  }, [projectRoot, sessionId, sessions])
-
   const startReproduction = useCallback(async (findingId: string, command?: string) => {
     await perform({ action: 'repro.run.start', id: findingId, sessionId, ...(command === undefined || command.trim() === '' ? {} : { command }) }, '复现 Run 已启动')
-  }, [perform, sessionId])
-
-  const updateReview = useCallback(async (findingId: string, status: ReviewStatus, assignee?: string) => {
-    await perform({ action: 'review.update', id: findingId, reviewStatus: status, sessionId, ...(assignee === undefined ? {} : { assignee }) }, '评审状态已更新')
-  }, [perform, sessionId])
-
-  const addReviewNote = useCallback(async (findingId: string, body: string) => {
-    await perform({ action: 'review.note.add', id: findingId, sessionId, author: sessionId, body }, '评审意见已记录')
   }, [perform, sessionId])
 
   const scanDedup = useCallback(async (findingId: string) => {
@@ -652,14 +622,6 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
 
   const updateDedup = useCallback(async (findingId: string, status: DedupStatus, matchId?: string) => {
     await perform({ action: 'dedup.update', id: findingId, dedupStatus: status, sessionId, ...(matchId === undefined ? {} : { matchId }) }, '去重结论已更新')
-  }, [perform, sessionId])
-
-  const prepareReport = useCallback(async (findingId: string) => {
-    await perform({ action: 'report.prepare', id: findingId, sessionId }, '报告草稿与 provenance 已生成')
-  }, [perform, sessionId])
-
-  const scheduleDisclosure = useCallback(async (findingId: string, dueAt: string, channel: 'vendor' | 'cna' | 'public' | 'internal', recipient?: string, notes?: string) => {
-    await perform({ action: 'disclosure.schedule', id: findingId, sessionId, disclosureDate: dueAt, disclosureChannel: channel, ...(recipient === undefined ? {} : { target: recipient }), ...(notes === undefined ? {} : { body: notes }) }, '披露时间线已排期')
   }, [perform, sessionId])
 
   const retryJob = useCallback(async (job: JobView) => {
@@ -711,10 +673,6 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
               {tab === 'quality' && <QualityPage data={dashboard} onTab={selectTab} onFinding={id => { void showFinding(id) }} onOpenConfigured={openConfigured} />}
               {tab === 'reproduction' && <ReproductionPage data={dashboard} onFinding={id => { void showFinding(id) }} onStart={id => { void startReproduction(id) }} />}
               {tab === 'campaigns' && <Campaigns data={dashboard} busy={busy} onCampaign={id => { void showCampaign(id) }} onNew={() => setDialog('campaign')} onRepair={id => { void perform({ action: 'campaign.repair', id }, 'Campaign 配置已修复') }} />}
-              {tab === 'radar' && <Radar projectRoot={projectRoot} busy={busy} onBusy={setBusy} onToast={setToast} onResearch={() => { void startRadarResearch() }} />}
-              {tab === 'review' && <ReviewPage data={dashboard} busy={busy} onFinding={id => { void showFinding(id) }} onUpdate={(id, status, assignee) => { void updateReview(id, status, assignee) }} onNote={(id, body) => { void addReviewNote(id, body) }} />}
-              {tab === 'reports' && <ReportsPage data={dashboard} onFinding={id => { void showFinding(id) }} onPrepare={id => { void prepareReport(id) }} onSchedule={(id, date, channel, recipient, notes) => { void scheduleDisclosure(id, date, channel, recipient, notes) }} />}
-              {tab === 'activity' && <TracePage data={dashboard} jobs={jobs} />}
               {tab === 'search' && <SearchPage projectRoot={projectRoot} onFinding={(id, archived) => { void showFinding(id, archived) }} onCampaign={id => { void showCampaign(id) }} />}
             </>
           ) : null}
@@ -733,10 +691,6 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
         onStartReproduction={id => { void startReproduction(id) }}
         onScanDedup={id => { void scanDedup(id) }}
         onUpdateDedup={(id, status, matchId) => { void updateDedup(id, status, matchId) }}
-        onUpdateReview={(id, status, assignee) => { void updateReview(id, status, assignee) }}
-        onAddReviewNote={(id, body) => { void addReviewNote(id, body) }}
-        onPrepareReport={id => { void prepareReport(id) }}
-        onScheduleDisclosure={(id, date, channel) => { void scheduleDisclosure(id, date, channel) }}
       />}
       {campaignDetail !== undefined && <CampaignDetail payload={campaignDetail} busy={busy} currentSessionId={sessionId} onClose={() => setCampaignDetail(undefined)} onStart={() => { void startCampaign(campaignDetail.campaign.id) }} onControl={(runId, control, laneId) => { void controlCampaignRun(runId, control, laneId) }} onOpenSession={openLinkedSession} />}
       {dialog === 'finding' && <NewFindingDialog busy={busy} onClose={() => setDialog(null)} onSubmit={async request => { if (await perform(request, '候选漏洞已创建')) setDialog(null) }} />}
@@ -766,10 +720,6 @@ function AuditToolbar({ tab, dashboard, busy, live, jobs, lastUpdated, refreshEr
     { id: 'quality', label: '质量', icon: 'gauge', count: dashboard?.quality.issues.length },
     { id: 'reproduction', label: '复现', icon: 'pulse', count: dashboard?.metrics.activeReproductions },
     { id: 'campaigns', label: '战役', icon: 'radar', count: dashboard?.metrics.campaigns },
-    { id: 'radar', label: '雷达', icon: 'radar' },
-    { id: 'review', label: '评审', icon: 'check', count: dashboard?.quality.queues.needsReview },
-    { id: 'reports', label: '交付', icon: 'inbox', count: dashboard?.quality.queues.reportReady },
-    { id: 'activity', label: '轨迹', icon: 'pulse' },
     { id: 'search', label: '搜索', icon: 'search' },
   ]
   return (

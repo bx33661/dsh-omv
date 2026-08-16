@@ -2,7 +2,6 @@ import type {
   ApiResponse,
   AuditStage,
   DashboardPayload,
-  DisclosurePlan,
   EvidenceAssessment,
   EvidenceCheckState,
   WorkflowIntent,
@@ -103,10 +102,6 @@ export function confidenceLabel(value: EvidenceAssessment['confidence']): string
   return ({ unrated: '未评级', low: '较低', medium: '中等', high: '较高' })[value]
 }
 
-export function disclosureChannelLabel(value: DisclosurePlan['channel']): string {
-  return ({ vendor: '厂商', cna: 'CNA', public: '公开', internal: '内部' })[value]
-}
-
 export function checkStateIcon(value: EvidenceCheckState): IconName {
   return value === 'verified' || value === 'supported' || value === 'not_applicable' ? 'check' : 'alert'
 }
@@ -119,10 +114,10 @@ export function scoreColor(value: number): string {
 }
 
 export function statusColor(value: string): string {
-  if (value === 'confirmed' || value === 'report_ready' || value === 'disclosed' || value === 'active' || value === 'completed' || value === 'passed' || value === 'verified' || value === 'supported' || value === 'approved' || value === 'clear' || value === 'ready') return 'var(--dsw-alias-state-success-primary, #329568)'
-  if (value === 'candidate' || value === 'investigating' || value === 'running' || value === 'stopping' || value === 'dispatching' || value === 'reviewing' || value === 'in_review' || value === 'draft') return 'var(--dsw-static-blue-400, #4d6bfe)'
-  if (value === 'reproducing' || value === 'queued' || value === 'pending' || value === 'paused' || value === 'awaiting_evidence' || value === 'new' || value === 'partial' || value === 'needs_attention' || value === 'unreviewed' || value === 'possible_duplicate' || value === 'stale' || value === 'warning' || value === 'info') return 'var(--dsw-alias-state-warn-primary, #b7791f)'
-  if (value === 'blocked' || value === 'failed' || value === 'cancelled' || value === 'changes_requested' || value === 'rejected' || value === 'duplicate' || value === 'blocker') return 'var(--dsw-alias-state-error-primary, #d44c4c)'
+  if (value === 'confirmed' || value === 'report_ready' || value === 'disclosed' || value === 'active' || value === 'completed' || value === 'passed' || value === 'verified' || value === 'supported' || value === 'clear' || value === 'ready') return 'var(--dsw-alias-state-success-primary, #329568)'
+  if (value === 'candidate' || value === 'investigating' || value === 'running' || value === 'stopping' || value === 'dispatching' || value === 'reviewing' || value === 'draft') return 'var(--dsw-static-blue-400, #4d6bfe)'
+  if (value === 'reproducing' || value === 'queued' || value === 'pending' || value === 'paused' || value === 'awaiting_evidence' || value === 'partial' || value === 'needs_attention' || value === 'possible_duplicate' || value === 'stale' || value === 'warning' || value === 'info') return 'var(--dsw-alias-state-warn-primary, #b7791f)'
+  if (value === 'blocked' || value === 'failed' || value === 'cancelled' || value === 'duplicate' || value === 'blocker') return 'var(--dsw-alias-state-error-primary, #d44c4c)'
   return 'var(--dsw-alias-label-tertiary, #8b8f98)'
 }
 
@@ -148,13 +143,11 @@ const STATUS_LABELS: Record<string, string> = {
   paused: '已暂停', completed: '已完成', cancelled: '已取消',
   needs_attention: '需要处理',
   failed: '失败', awaiting_evidence: '待证据',
-  passed: '通过', new: '新信号', reviewing: '评审中', ignored: '已忽略',
+  passed: '通过',
   finding: '发现', campaign: '战役', activity: '轨迹', radar: '雷达',
   ready: '就绪', missing: '缺失', draft: '草稿', stale: '需刷新', partial: '部分支撑', supported: '已有支撑', verified: '已经验证', not_applicable: '暂不适用',
-  unreviewed: '未评审', in_review: '评审中', changes_requested: '需要修改', approved: '已通过', rejected: '已驳回',
   unknown: '未知', clear: '已排除', possible_duplicate: '疑似重复', duplicate: '重复',
   blocker: '阻塞', warning: '提醒', info: '建议',
-  advisory: '公告', release: '发布', 'suspected-fix': '疑似修复',
 }
 
 export function statusLabel(value: string): string {

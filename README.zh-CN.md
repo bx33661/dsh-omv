@@ -18,25 +18,23 @@
 - **情境化提交条件**：将数据流、运行时验证、影响范围、结论可信度和报告材料分开判断；候选阶段只提示研究建议，确认后才启用提交条件，且不再把提交分数反向作为证据门槛。
 - **结构化复现 Run**：记录命令、会话、退出码、输出和产物，多次复现结果并存。
 - **复现实验室**：单独的复现队列、运行中/失败/阻塞统计、命令与环境卡片，以及从 Finding 详情重新开始 Run 的入口。
-- **证据质量中心**：按证据、复现、评审、去重、交付拆分操作队列，用阻塞/提醒/建议信号替代僵硬完成度。
-- **本地去重情报**：比较相邻 Finding 和 Radar 标题，保留相似度、理由、确认/排除结论与下一步。
-- **协作评审**：持久化负责人、Reviewer、状态、意见和意见解决标记，工作台与 Agent Tool 共用同一记录。
-- **报告与披露中心**：检查报告 artifact 和 provenance，生成 dsh-omv 草稿，建立 vendor/CNA/公开/内部披露时间线。
+- **证据质量中心**：按证据、复现、去重与报告就绪拆分操作队列，用阻塞/提醒/建议信号替代僵硬完成度。
+- **本地去重情报**：比较相邻 Finding，保留相似度、理由、确认/排除结论与下一步；同包不同漏洞类型不再误报疑似重复。
+- **报告材料状态**：报告包与 provenance 状态并入质量中心；草稿与披露由 omv-report / omv-disclose Agent 工作流产出。
 - **Campaign Graph**：在每条 Lane 之间展示目标、运行状态、Evidence ID 和异常分支，补充可暂停/重试的 Runner 详情。
-- **命令面板**：`⌘K/Ctrl-K` 打开视图和创建动作，1–9 与 0 快速切换十个原生工作台页面。
+- **命令面板**：`⌘K/Ctrl-K` 打开视图和创建动作，1–6 快速切换六个原生工作台页面。
 - **DSH 原生视觉系统**：直接沿用宿主 alias 色板、背景层、边框和字体，保持干净的原生表面，不叠加渐变、纹理或独立主题；工作台在 DSH 会话滚动容器中保持独立滚动与吸顶导航。
-- **研究雷达**：读取 watchlist 与 Radar 事件，自动生成分数化候选队列，并可转换成 Evidence.v1 Candidate。
-- **全局检索**：跨 Evidence、归档、Campaign、Radar 和工作区活动搜索。
+- **全局检索**：跨 Evidence、归档、Campaign 和工作区活动搜索。
 - **DSH Jobs**：在总览和工具栏展示当前会话的原生后台任务状态；失败或终止的任务可直接发起带失败上下文的修复重试。
 - **工具取消契约**：所有 OMV Tool 统一在分发前后检查 DSH `AbortSignal`，长任务用持久化 Run 拆分为可恢复的开始/完成阶段。
 - **实时同步**：通过 SSE 监听 `.omv` 文件变化，轮询只作为断线后备。
-- **原生审计轨迹**：用 DSH 风格的 Duration / Turns / Calls 密度图、Evidence / Workflow / Tools 分层和可检索事件流呈现 `.omv/activity.jsonl`，支持类型筛选、轻量入场动画与减少动态模式。
+- **最近变更**：总览页直接展示 `.omv/activity.jsonl` 的最新证据写入与工作流动作。
 - **可操作工作台**：创建候选、校验、初始化复现材料、状态提升、恢复归档。
 - **原生会话视图**：在 DSH 会话标题栏与“对话 / 轨迹”并列显示“漏洞审计”，切换时保留同一会话与 Composer。
 - **DSH 工作区绑定**：侧栏入口会注册或复用配置目录对应的 DSH Workspace；任意会话中的 OMV 能力自动绑定该会话的 `cwd`。
 - **会话上下文**：标题栏显示 OMV 状态，Composer 下方同步活跃、确认与阻塞计数。
-- **DSH 模型工具**：28 个原生 Tool，覆盖工作区质量、DSH Fiber 生命周期、Finding、Runner、证据图、去重、评审、报告、披露、复现、Radar 与检索，并使用 DSH tool card 呈现调用与结果。
-- **原生斜杠命令**：23 个 `/omv*` 命令，覆盖读取、创建、修复、关联、复现、状态、Campaign Runtime、Radar、去重、评审、报告、披露与检索；命令生命周期写入会话日志。
+- **DSH 模型工具**：22 个原生 Tool，覆盖工作区质量、DSH Fiber 生命周期、Finding、Runner、证据图、去重与复现，并使用 DSH tool card 呈现调用与结果。
+- **原生斜杠命令**：19 个 `/omv*` 命令，覆盖读取、创建、修复、关联、复现、状态、Campaign Runtime、去重与检索；命令生命周期写入会话日志。
 - **稳定协议与导出**：HTTP payload 默认携带 `protocolVersion: "2"`，通过 `?protocol=1` 提供加法兼容；设置页可导出完整工作区快照。
 - **Agent 上下文注入**：通过 DSH `systemPrompt` 告知 Agent 证据优先的 OMV 工作流与工具选择规则。
 - **原生设置页**：在 DSH 设置中检查默认工作区、索引、写入开关、能力数量并进入审计工作区；“默认视图”优先写入 `dsh-settings`，在当前 rc.6 Host 尚未开放插件命名空间时自动回退到浏览器本地偏好。
@@ -115,7 +113,6 @@ dsh plugin --profile web add ./dsh-omv-1.0.6.tgz
     activityLimit: 60
     refreshIntervalMs: 15000
     campaignConcurrency: 3
-    radarIntervalMs: 0
     watchDebounceMs: 90
     eventHeartbeatMs: 20000
     httpBodyLimitBytes: 262144
@@ -134,7 +131,6 @@ dsh plugin --profile web add ./dsh-omv-1.0.6.tgz
 | `activityLimit` | `60` | 返回到前端的最近活动条目上限 |
 | `refreshIntervalMs` | `15000` | 仪表盘轮询间隔；`0` 表示关闭轮询 |
 | `campaignConcurrency` | `3` | Campaign Runner 同时运行的 Lane 会话数，范围 1–8 |
-| `radarIntervalMs` | `0` | Radar 本地自动刷新间隔；`0` 表示关闭定时刷新 |
 | `watchDebounceMs` | `90` | `.omv` 文件变更合并窗口，范围 0–10000 |
 | `eventHeartbeatMs` | `20000` | SSE 心跳间隔，范围 1–300000 |
 | `httpBodyLimitBytes` | `262144` | `/action` JSON 请求体上限，范围 4096–16777216 |
@@ -168,13 +164,9 @@ export function apply(ctx: Context) {
 | `GET` | `/api/dsh-omv/finding?id=<id>` | 单条发现、原始证据、doctor 与 review |
 | `GET` | `/api/dsh-omv/campaign?id=<id>` | Campaign、lane、runbook 与会话编排历史 |
 | `GET` | `/api/dsh-omv/campaign-run?id=<id>` | Campaign Run 与 Lane/Session 状态 |
-| `GET` | `/api/dsh-omv/radar` | Radar watchlist、最近事件与候选队列 |
 | `GET` | `/api/dsh-omv/quality` | 证据质量信号、阻塞项和操作队列 |
 | `GET` | `/api/dsh-omv/reproductions` | 工作区结构化复现 Run |
-| `GET` | `/api/dsh-omv/review?id=<id>` | 单条 Finding 协作评审记录 |
 | `GET` | `/api/dsh-omv/dedup?id=<id>` | 单条 Finding 去重摘要与匹配 |
-| `GET` | `/api/dsh-omv/report?id=<id>` | 报告 artifact、缺失项与 provenance 状态 |
-| `GET` | `/api/dsh-omv/disclosures?id=<id>` | 披露时间线 |
 | `GET` | `/api/dsh-omv/search?q=<query>` | 工作区全局搜索 |
 | `GET` | `/api/dsh-omv/events` | `.omv` 实时 SSE 变更流 |
 | `GET` | `/api/dsh-omv/protocol` | 当前协议和兼容版本 |

@@ -22,7 +22,6 @@ async function fixture(allowMutations = true): Promise<OmvWorkbench> {
     activityLimit: 20,
     refreshIntervalMs: 0,
     campaignConcurrency: 3,
-    radarIntervalMs: 0,
     watchDebounceMs: 10,
     eventHeartbeatMs: 20_000,
     httpBodyLimitBytes: 256 * 1024,
@@ -251,23 +250,6 @@ describe('OmvWorkbench', () => {
     })
   })
 
-  it('refreshes Radar state and includes it in global search', async () => {
-    const workbench = await fixture()
-    const radarDir = join(workbench.config.projectRoot, '.omv', 'radar')
-    await mkdir(radarDir, { recursive: true })
-    await writeFile(join(radarDir, 'watchlist.yaml'), 'watch:\n  - ecosystem: npm\n    package: demo-radar-package\n    vulnerability: ssrf\n', 'utf8')
-    const radar = await workbench.action({ action: 'radar.refresh' }) as { events: unknown[]; queue: unknown[] }
-    expect(radar.events).toHaveLength(1)
-    // Repeated refreshes (including the radarIntervalMs scheduler) must stay idempotent.
-    const refreshed = await workbench.action({ action: 'radar.refresh' }) as { events: unknown[]; queue: unknown[] }
-    expect(refreshed.events).toHaveLength(1)
-    expect(refreshed.queue).toHaveLength(radar.queue.length)
-    const rawEvents = await readFile(join(radarDir, 'events.jsonl'), 'utf8')
-    expect(rawEvents.trim().split('\n')).toHaveLength(1)
-    const results = await workbench.search('demo-radar-package')
-    expect(results.some(result => result.kind === 'radar')).toBe(true)
-  })
-
   it('runs Campaign lanes with bounded claims, DSH session binding, retry, and durable completion', async () => {
     const workbench = await fixture()
     await workbench.action({
@@ -333,53 +315,18 @@ describe('OmvWorkbench', () => {
     expect(updated.assessment.dimensions.find(item => item.id === 'runtime_verification')).toMatchObject({ state: 'verified' })
   })
 
-  it('queues Radar signals and converts one into a tracked Candidate', async () => {
-    const workbench = await fixture()
-    const radarDir = join(workbench.config.projectRoot, '.omv', 'radar')
-    await mkdir(radarDir, { recursive: true })
-    await writeFile(join(radarDir, 'watchlist.yaml'), 'watch:\n  - ecosystem: npm\n    package: queue-package\n    vulnerability: command-injection\n', 'utf8')
-    const radar = await workbench.action({ action: 'radar.refresh' }) as { queue: { id: string; status: string }[] }
-    expect(radar.queue[0]).toMatchObject({ status: 'new' })
-    const converted = await workbench.action({ action: 'radar.queue.convert', id: radar.queue[0]!.id, findingId: 'radar-queue-finding' }) as { findingId: string }
-    expect(converted.findingId).toBe('radar-queue-finding')
-    const dashboard = await workbench.dashboard()
-    expect(dashboard.findings.some(finding => finding.id === 'radar-queue-finding')).toBe(true)
-    expect((await workbench.radar()).queue[0]).toMatchObject({ status: 'candidate', findingId: 'radar-queue-finding' })
-  })
-
-  it('normalizes registry ecosystem aliases when converting Radar signals', async () => {
-    const workbench = await fixture()
-    const radarDir = join(workbench.config.projectRoot, '.omv', 'radar')
-    await mkdir(radarDir, { recursive: true })
-    await writeFile(join(radarDir, 'watchlist.yaml'), 'watch:\n  - ecosystem: pip\n    package: alias-package\n    vulnerability: ssrf\n', 'utf8')
-    const radar = await workbench.action({ action: 'radar.refresh' }) as { queue: { id: string }[] }
-    const converted = await workbench.action({ action: 'radar.queue.convert', id: radar.queue[0]!.id, findingId: 'radar-alias-finding' }) as { findingId: string }
-    expect(converted.findingId).toBe('radar-alias-finding')
-    await expect(workbench.finding('radar-alias-finding')).resolves.toMatchObject({ detail: { ecosystem: 'python' } })
-  })
-
-  it('unifies quality, dedup, review, report, disclosure, and reproduction actions', async () => {
+  it('unifies quality, dedup, and reproduction actions', async () => {
     const workbench = await fixture()
     await workbench.action({ action: 'finding.create', id: 'workflow-finding', product: 'workflow-package', ecosystem: 'npm', vulnerabilityClass: 'ssrf', researcherGoal: 'triage' })
     const initial = await workbench.dashboard()
-    expect(initial.quality.queues.needsReview).toBeGreaterThan(0)
-    expect(initial.reviews[0]).toMatchObject({ findingId: 'workflow-finding', status: 'unreviewed' })
-    expect(initial.reports[0]).toMatchObject({ findingId: 'workflow-finding', status: 'missing' })
+    expect(initial.quality.queues.needsDedup).toBeGreaterThan(0)
     const dedup = await workbench.action({ action: 'dedup.scan', id: 'workflow-finding', sessionId: 'session-quality' }) as { status: string }
     expect(dedup.status).toBe('clear')
-    const review = await workbench.action({ action: 'review.update', id: 'workflow-finding', reviewStatus: 'in_review', assignee: 'reviewer-a', sessionId: 'session-quality' }) as { status: string; assignee: string }
-    expect(review).toMatchObject({ status: 'in_review', assignee: 'reviewer-a' })
-    const noted = await workbench.action({ action: 'review.note.add', id: 'workflow-finding', author: 'reviewer-a', body: '请补充运行时观测。' }) as { notes: unknown[] }
-    expect(noted.notes).toHaveLength(1)
     const run = await workbench.action({ action: 'repro.run.start', id: 'workflow-finding', sessionId: 'session-quality', command: './repro.sh' }) as { id: string; status: string }
     expect(run.status).toBe('running')
-    const report = await workbench.action({ action: 'report.prepare', id: 'workflow-finding', sessionId: 'session-quality' }) as { status: string; artifacts: string[] }
-    expect(report.artifacts.some(path => path.endsWith('dsh-omv-draft.md'))).toBe(true)
-    const disclosure = await workbench.action({ action: 'disclosure.schedule', id: 'workflow-finding', disclosureDate: '2030-01-02', disclosureChannel: 'internal', sessionId: 'session-quality' }) as { status: string; channel: string }
-    expect(disclosure).toMatchObject({ status: 'planned', channel: 'internal' })
     const final = await workbench.dashboard()
     expect(final.reproductionRuns).toHaveLength(1)
-    expect(final.quality.issues.some(issue => issue.kind === 'review' && issue.findingId === 'workflow-finding')).toBe(false)
-    await expect(workbench.disclosures('workflow-finding')).resolves.toEqual([expect.objectContaining({ channel: 'internal' })])
+    expect(final.quality.issues.some(issue => issue.kind === 'dedup' && issue.findingId === 'workflow-finding')).toBe(false)
+    expect(final.quality.issues.some(issue => issue.kind === 'report' && issue.findingId === 'workflow-finding')).toBe(true)
   })
 })

@@ -85,10 +85,6 @@ async function routeRequest(
     sendJson(res, 200, success(versioned(await workbench.campaignRun(id), requestedProtocol)), method === 'HEAD')
     return
   }
-  if ((method === 'GET' || method === 'HEAD') && suffix === '/radar') {
-    sendJson(res, 200, success(versioned(await workbench.radar(), requestedProtocol)), method === 'HEAD')
-    return
-  }
   if ((method === 'GET' || method === 'HEAD') && suffix === '/quality') {
     sendJson(res, 200, success(versioned(await workbench.quality(), requestedProtocol)), method === 'HEAD')
     return
@@ -97,27 +93,10 @@ async function routeRequest(
     sendJson(res, 200, success(versioned((await workbench.dashboard()).reproductionRuns, requestedProtocol)), method === 'HEAD')
     return
   }
-  if ((method === 'GET' || method === 'HEAD') && suffix === '/review') {
-    const id = url.searchParams.get('id')?.trim()
-    if (!id) throw new RequestError(400, 'id query parameter is required')
-    sendJson(res, 200, success(versioned(await workbench.review(id), requestedProtocol)), method === 'HEAD')
-    return
-  }
   if ((method === 'GET' || method === 'HEAD') && suffix === '/dedup') {
     const id = url.searchParams.get('id')?.trim()
     if (!id) throw new RequestError(400, 'id query parameter is required')
     sendJson(res, 200, success(versioned(await workbench.dedupSummary(id), requestedProtocol)), method === 'HEAD')
-    return
-  }
-  if ((method === 'GET' || method === 'HEAD') && suffix === '/report') {
-    const id = url.searchParams.get('id')?.trim()
-    if (!id) throw new RequestError(400, 'id query parameter is required')
-    sendJson(res, 200, success(versioned(await workbench.reportPack(id), requestedProtocol)), method === 'HEAD')
-    return
-  }
-  if ((method === 'GET' || method === 'HEAD') && suffix === '/disclosures') {
-    const id = url.searchParams.get('id')?.trim() || undefined
-    sendJson(res, 200, success(versioned(await workbench.disclosures(id), requestedProtocol)), method === 'HEAD')
     return
   }
   if ((method === 'GET' || method === 'HEAD') && suffix === '/search') {

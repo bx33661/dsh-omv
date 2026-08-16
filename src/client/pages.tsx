@@ -7,14 +7,9 @@ import type {
   CampaignRun,
   DashboardPayload,
   DedupStatus,
-  DisclosurePlan,
   EvidenceAssessment,
   EvidenceCheckState,
   FindingPayload,
-  RadarPayload,
-  ReportQueueItem,
-  ReviewQueueItem,
-  ReviewStatus,
   SearchHit,
   WorkflowIntent,
   WorkspaceQualityPayload,
@@ -28,7 +23,6 @@ import {
   campaignLabel,
   checkStateIcon,
   confidenceLabel,
-  disclosureChannelLabel,
   firstLine,
   formatTime,
   messageOf,
@@ -61,7 +55,7 @@ import {
 } from './ui.js'
 
 export function CommandPalette({ tab, onTab, onNewFinding, onNewCampaign, onClose }: { tab: Tab; onTab: (tab: Tab) => void; onNewFinding: () => void; onNewCampaign: () => void; onClose: () => void }) {
-  const labels: Record<Tab, string> = { overview: '总览', findings: '漏洞', quality: '质量', reproduction: '复现', campaigns: '战役', radar: '雷达', review: '评审', reports: '交付', activity: '轨迹', search: '搜索' }
+  const labels: Record<Tab, string> = { overview: '总览', findings: '漏洞', quality: '质量', reproduction: '复现', campaigns: '战役', search: '搜索' }
   const actions: Array<{ label: string; hint: string; run: () => void }> = [
     ...OMV_TABS.map((item, index) => ({ label: `打开${labels[item]}`, hint: index === 9 ? '0' : String(index + 1), run: () => onTab(item) })),
     { label: '新建候选漏洞', hint: 'Finding', run: onNewFinding },
@@ -144,7 +138,7 @@ export function Overview({ data, jobs, onRetryJob, onTab, onFinding, onNew, onOp
             </ul>
           )}
         </section>
-        <div className="omv-side-stack"><Posture data={data} /><NativeJobs jobs={jobs} onRetry={onRetryJob} /></div>
+        <div className="omv-side-stack"><Posture data={data} /><RecentActivity data={data} /><NativeJobs jobs={jobs} onRetry={onRetryJob} /></div>
       </div>
     </>
   )
@@ -153,6 +147,11 @@ export function Overview({ data, jobs, onRetryJob, onTab, onFinding, onNew, onOp
 export function NativeJobs({ jobs, onRetry }: { jobs: readonly JobView[]; onRetry: (job: JobView) => void }) {
   const visible = jobs.slice(-6).reverse()
   return <section className="omv-panel"><div className="omv-panel-head"><div><h3>DSH 后台任务</h3><p>当前会话的原生 Jobs</p></div></div>{visible.length === 0 ? <Empty label="当前会话没有后台任务" compact /> : <ul className="omv-native-jobs">{visible.map(job => <li key={job.id}><i data-state={job.status} /><div><strong>{job.label}</strong><span>{job.kind} · {job.status}{job.detail === undefined ? '' : ` · ${job.detail}`}</span></div>{job.status === 'failed' || job.status === 'killed' ? <button type="button" className="omv-secondary" onClick={() => onRetry(job)}>重试</button> : <code>{job.id}</code>}</li>)}</ul>}</section>
+}
+
+export function RecentActivity({ data }: { data: DashboardPayload }) {
+  const entries = data.activity.slice(0, 8)
+  return <section className="omv-panel"><div className="omv-panel-head"><div><h3>最近变更</h3><p>证据写入与工作流动作</p></div></div>{entries.length === 0 ? <Empty label="暂无活动记录" compact /> : <ul className="omv-history">{entries.map((entry, index) => <li key={`${entry.timestamp}-${entry.action}-${entry.id ?? 'workspace'}-${index}`}><i style={{ background: activityColor(entry.action) }} /><div><strong>{activityLabel(entry.action)}</strong><span>{entry.id ?? '工作区'} · {relativeTime(entry.timestamp)}</span></div></li>)}</ul>}</section>
 }
 
 export function Findings({ data, onFinding, onNew, onOpenConfigured }: {
@@ -276,45 +275,6 @@ export function CampaignDetail({ payload, busy, currentSessionId, onClose, onSta
   </>
 }
 
-export function Radar({ projectRoot, busy, onBusy, onToast, onResearch }: {
-  projectRoot: string
-  busy: boolean
-  onBusy: (busy: boolean) => void
-  onToast: (toast: { kind: 'ok' | 'error'; message: string }) => void
-  onResearch: () => void
-}) {
-  const [radar, setRadar] = useState<RadarPayload>()
-  const [error, setError] = useState<string>()
-  const load = useCallback(async () => {
-    try {
-      setRadar(await api<RadarPayload>('/radar', undefined, projectRoot))
-      setError(undefined)
-    } catch (caught) {
-      setError(messageOf(caught))
-      throw caught
-    }
-  }, [projectRoot])
-  useEffect(() => { void load().catch(() => undefined) }, [load])
-  const refresh = async () => {
-    onBusy(true)
-    try {
-      setRadar(await api<RadarPayload>('/action', { method: 'POST', body: JSON.stringify({ action: 'radar.refresh' } satisfies ActionRequest) }, projectRoot))
-      onToast({ kind: 'ok', message: 'Radar 观察项快照已更新' })
-    } catch (error) {
-      onToast({ kind: 'error', message: messageOf(error) })
-    } finally { onBusy(false) }
-  }
-  const convert = async (queueId: string) => {
-    onBusy(true)
-    try {
-      const result = await api<{ findingId: string }>('/action', { method: 'POST', body: JSON.stringify({ action: 'radar.queue.convert', id: queueId } satisfies ActionRequest) }, projectRoot)
-      onToast({ kind: 'ok', message: `Radar Candidate 已创建：${result.findingId}` })
-      await load()
-    } catch (error) { onToast({ kind: 'error', message: messageOf(error) }) } finally { onBusy(false) }
-  }
-  return <><Hero eyebrow="被动情报" title="研究雷达" description="跟踪观察项、公开公告、版本变化和疑似修复信号。" actions={<><button type="button" className="omv-secondary" disabled={busy} onClick={() => { void refresh() }}><Icon name="refresh" size={12} />同步观察项</button><button type="button" className="omv-primary" disabled={busy || radar?.watchlistExists !== true} onClick={onResearch}><Icon name="radar" size={12} />Agent 被动调研</button></>} />{radar === undefined && error !== undefined ? <section className="omv-panel"><Empty label="Radar 暂时无法读取" description={error} action={<button type="button" className="omv-secondary" onClick={() => { void load().catch(() => undefined) }}><Icon name="refresh" size={12} />重试</button>} /></section> : radar === undefined ? <Loading /> : !radar.watchlistExists ? <section className="omv-panel"><Empty label={`创建 ${radar.watchlistPath} 后开始`} description="watchlist.yaml 只记录观察对象，不会主动探测目标。" /></section> : <><div className="omv-radar-grid"><section className="omv-panel"><div className="omv-panel-head"><div><h3>观察列表</h3><p>{radar.watch.length} 个目标</p></div></div><ul className="omv-watchlist">{radar.watch.map((item, index) => <li key={`${item.ecosystem}-${item.package ?? item.keyword}-${index}`}><Icon name="radar" size={13} /><div><strong>{item.package ?? item.keyword ?? 'unknown'}</strong><span>{item.ecosystem} · {item.vulnerability ?? '通用动态'}</span></div></li>)}</ul></section><section className="omv-panel"><div className="omv-panel-head"><div><h3>最近信号</h3><p>{radar.events.length} 条事件</p></div></div>{radar.events.length === 0 ? <Empty label="尚无 Radar 事件" compact /> : <ul className="omv-radar-events">{radar.events.slice(0, 40).map(event => <li key={event.id}><Status value={event.type} /><div><strong>{event.title}</strong><span>{event.source} · {formatTime(event.observedAt)}</span></div>{event.severity !== undefined && <b>{event.severity}</b>}</li>)}</ul>}</section></div><section className="omv-panel omv-radar-queue"><div className="omv-panel-head"><div><h3>审计候选队列</h3><p>{radar.queue.filter(item => item.status === 'new' || item.status === 'reviewing').length} 个待处理信号</p></div></div>{radar.queue.length === 0 ? <Empty label="同步或调研后，值得复核的信号会进入这里" compact /> : <ul>{radar.queue.slice(0, 30).map(item => <li key={item.id}><Score value={item.score} /><div><strong>{item.eventId}</strong><span>{item.reason}</span></div><Status value={item.status} />{item.status !== 'candidate' && item.status !== 'ignored' && <button type="button" className="omv-secondary" disabled={busy} onClick={() => { void convert(item.id) }}>创建候选</button>}{item.findingId !== undefined && <code>{item.findingId}</code>}</li>)}</ul>}</section></>}</>
-}
-
 export function SearchPage({ projectRoot, onFinding, onCampaign }: {
   projectRoot: string
   onFinding: (id: string, archived?: boolean) => void
@@ -337,7 +297,7 @@ export function SearchPage({ projectRoot, onFinding, onCampaign }: {
     }, 180)
     return () => { window.clearTimeout(timer); controller.abort() }
   }, [projectRoot, query, retryNonce])
-  return <><Hero eyebrow="工作区索引" title="全局检索" description="跨 Evidence、Campaign、Radar 和活动记录检索。" /><div className="omv-search omv-global-search"><Icon name="search" size={15} /><input aria-label="搜索 OMV 工作区" autoFocus className="omv-input" value={query} placeholder="输入 Finding、包名、证据、Campaign 或 Radar 信号…" onChange={event => setQuery(event.target.value)} />{query !== '' && <button type="button" className="omv-search-clear" aria-label="清除搜索" onClick={() => setQuery('')}><Icon name="close" size={13} /></button>}</div><section className="omv-panel omv-search-results"><div className="omv-results-meta">{query.trim() === '' ? '输入关键词开始检索' : searching ? '正在搜索…' : error !== undefined ? '检索失败' : `${results.length} 个匹配结果`}</div>{searching ? <Loading label="检索 OMV 工作区…" /> : error !== undefined ? <Empty label="检索暂时失败" description={error} action={<button type="button" className="omv-secondary" onClick={() => setRetryNonce(value => value + 1)}><Icon name="refresh" size={12} />重试</button>} /> : query.trim() === '' ? <Empty label="输入关键词开始检索" description="支持 Finding ID、包名、漏洞类型、Campaign 和 Radar 事件。" /> : results.length === 0 ? <Empty label="没有匹配结果" description="换一个关键词，或检查当前会话连接的工作区。" /> : <ul>{results.map(result => { const actionable = result.kind === 'finding' || result.kind === 'campaign'; const open = () => { if (result.kind === 'finding') onFinding(result.id, result.archived); else if (result.kind === 'campaign') onCampaign(result.id) }; return <li key={`${result.kind}-${result.id}`} {...(actionable ? { tabIndex: 0, role: 'button' as const, 'aria-label': `打开 ${result.title}`, onKeyDown: (event: React.KeyboardEvent) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open() } } } : {})} onClick={actionable ? open : undefined} data-actionable={actionable}><Status value={result.kind} /><div><strong>{result.title}</strong><span>{result.description}</span></div><b>{result.score}</b></li> })}</ul>}</section></>
+  return <><Hero eyebrow="工作区索引" title="全局检索" description="跨 Evidence、Campaign 和活动记录检索。" /><div className="omv-search omv-global-search"><Icon name="search" size={15} /><input aria-label="搜索 OMV 工作区" autoFocus className="omv-input" value={query} placeholder="输入 Finding、包名、证据或 Campaign…" onChange={event => setQuery(event.target.value)} />{query !== '' && <button type="button" className="omv-search-clear" aria-label="清除搜索" onClick={() => setQuery('')}><Icon name="close" size={13} /></button>}</div><section className="omv-panel omv-search-results"><div className="omv-results-meta">{query.trim() === '' ? '输入关键词开始检索' : searching ? '正在搜索…' : error !== undefined ? '检索失败' : `${results.length} 个匹配结果`}</div>{searching ? <Loading label="检索 OMV 工作区…" /> : error !== undefined ? <Empty label="检索暂时失败" description={error} action={<button type="button" className="omv-secondary" onClick={() => setRetryNonce(value => value + 1)}><Icon name="refresh" size={12} />重试</button>} /> : query.trim() === '' ? <Empty label="输入关键词开始检索" description="支持 Finding ID、包名、漏洞类型、Campaign 和活动记录。" /> : results.length === 0 ? <Empty label="没有匹配结果" description="换一个关键词，或检查当前会话连接的工作区。" /> : <ul>{results.map(result => { const actionable = result.kind === 'finding' || result.kind === 'campaign'; const open = () => { if (result.kind === 'finding') onFinding(result.id, result.archived); else if (result.kind === 'campaign') onCampaign(result.id) }; return <li key={`${result.kind}-${result.id}`} {...(actionable ? { tabIndex: 0, role: 'button' as const, 'aria-label': `打开 ${result.title}`, onKeyDown: (event: React.KeyboardEvent) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open() } } } : {})} onClick={actionable ? open : undefined} data-actionable={actionable}><Status value={result.kind} /><div><strong>{result.title}</strong><span>{result.description}</span></div><b>{result.score}</b></li> })}</ul>}</section></>
 }
 
 export function QualityPage({ data, onTab, onFinding, onOpenConfigured }: {
@@ -350,9 +310,8 @@ export function QualityPage({ data, onTab, onFinding, onOpenConfigured }: {
   const queues = [
     { id: 'evidence', label: '补齐证据', value: quality.queues.needsEvidence, tab: 'findings' as Tab, detail: '论证链仍有缺口的发现' },
     { id: 'repro', label: '待复现', value: quality.queues.needsReproduction, tab: 'reproduction' as Tab, detail: '需要运行时验证的发现' },
-    { id: 'review', label: '待评审', value: quality.queues.needsReview, tab: 'review' as Tab, detail: '等待协作者确认的发现' },
     { id: 'dedup', label: '待去重', value: quality.queues.needsDedup, tab: 'findings' as Tab, detail: '尚未完成情报比对的发现' },
-    { id: 'report', label: '可交付', value: quality.queues.reportReady, tab: 'reports' as Tab, detail: '报告材料已接近齐备' },
+    { id: 'report', label: '可交付', value: quality.queues.reportReady, tab: 'findings' as Tab, detail: '报告材料已接近齐备' },
   ]
   return <>
     <Hero eyebrow="证据运营" title="质量中心" description="用证据向量和可操作队列看清下一步，不把研究过程压扁成一个僵硬百分比。" actions={<><button type="button" className="omv-secondary" onClick={() => onTab('findings')}><Icon name="finding" size={12} />查看全部发现</button>{onOpenConfigured !== undefined && <button type="button" className="omv-secondary" onClick={() => { void onOpenConfigured() }}><Icon name="grid" size={12} />打开默认工作区</button>}</>} />
@@ -381,205 +340,7 @@ export function ReproductionPage({ data, onFinding, onStart }: {
   </>
 }
 
-export function ReviewPage({ data, busy, onFinding, onUpdate, onNote }: {
-  data: DashboardPayload
-  busy: boolean
-  onFinding: (id: string) => void
-  onUpdate: (id: string, status: ReviewStatus, assignee?: string) => void
-  onNote: (id: string, body: string) => void
-}) {
-  const [drafts, setDrafts] = useState<Record<string, string>>({})
-  const [assigneeDrafts, setAssigneeDrafts] = useState<Record<string, string>>({})
-  const records = data.reviews
-  useEffect(() => setAssigneeDrafts(current => {
-    const next = { ...current }
-    for (const item of records) if (!(item.findingId in next)) next[item.findingId] = item.assignee ?? ''
-    return next
-  }), [records])
-  const saveAssignee = (item: ReviewQueueItem) => {
-    const next = (assigneeDrafts[item.findingId] ?? '').trim()
-    const previous = (item.assignee ?? '').trim()
-    if (next !== previous) onUpdate(item.findingId, item.status, next === '' ? undefined : next)
-  }
-  return <>
-    <Hero eyebrow="多人协作" title="协作评审" description="为每个发现保留状态、负责人和可追踪意见，让批评与确认都回到 Evidence 上。" actions={<span className="omv-hero-status"><i data-state={records.some(item => item.status === 'changes_requested') ? 'warn' : 'idle'} />{records.filter(item => item.status === 'unreviewed' || item.status === 'changes_requested').length} 项待跟进</span>} />
-    <section className="omv-panel omv-review-board"><div className="omv-panel-head"><div><h3>评审队列</h3><p>{records.length} 条记录 · 状态即时更新，负责人输入在保存后写入工作区</p></div></div>{records.length === 0 ? <Empty label="还没有评审记录" description="打开一个 Finding 后即可开始评审。" compact /> : <ul>{records.map(item => { const assignee = assigneeDrafts[item.findingId] ?? item.assignee ?? ''; const assigneeDirty = assignee.trim() !== (item.assignee ?? '').trim(); return <li key={item.findingId} className="omv-review-card"><div className="omv-review-card-head"><button type="button" className="omv-link-button" onClick={() => onFinding(item.findingId)}>{item.findingId}<Icon name="chevron" size={11} /></button><Status value={item.status} /></div><div className="omv-review-controls"><select className="omv-select" disabled={busy} value={item.status} aria-label={`${item.findingId} 评审状态`} onChange={event => onUpdate(item.findingId, event.target.value as ReviewStatus, item.assignee)}>{(['unreviewed', 'in_review', 'changes_requested', 'approved', 'rejected'] as const).map(status => <option key={status} value={status}>{statusLabel(status)}</option>)}</select><input className="omv-input" disabled={busy} aria-label={`${item.findingId} 负责人`} value={assignee} placeholder="分配负责人" onChange={event => setAssigneeDrafts(current => ({ ...current, [item.findingId]: event.target.value }))} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); saveAssignee(item) } }} /><button type="button" className="omv-secondary omv-review-save" disabled={busy || !assigneeDirty} onClick={() => saveAssignee(item)}>保存</button></div>{item.latestNote !== undefined && <p className="omv-review-note-preview">“{item.latestNote}”</p>}<div className="omv-review-note"><input className="omv-input" disabled={busy} value={drafts[item.findingId] ?? ''} placeholder="写一条评审意见…" onChange={event => setDrafts(current => ({ ...current, [item.findingId]: event.target.value }))} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); const body = (drafts[item.findingId] ?? '').trim(); if (body !== '') { onNote(item.findingId, body); setDrafts(current => ({ ...current, [item.findingId]: '' })) } } }} /><button type="button" className="omv-secondary" disabled={busy || (drafts[item.findingId] ?? '').trim() === ''} onClick={() => { const body = (drafts[item.findingId] ?? '').trim(); if (body !== '') { onNote(item.findingId, body); setDrafts(current => ({ ...current, [item.findingId]: '' })) } }}>记录意见</button></div><small className="omv-review-next">{item.nextAction} · {item.noteCount} 条意见 · {formatTime(item.updatedAt)}</small></li> })}</ul>}</section>
-  </>
-}
-
-export function ReportsPage({ data, onFinding, onPrepare, onSchedule }: {
-  data: DashboardPayload
-  onFinding: (id: string) => void
-  onPrepare: (id: string) => void
-  onSchedule: (id: string, date: string, channel: DisclosurePlan['channel'], recipient?: string, notes?: string) => void
-}) {
-  const [dates, setDates] = useState<Record<string, string>>({})
-  const [channels, setChannels] = useState<Record<string, DisclosurePlan['channel']>>({})
-  const [recipients, setRecipients] = useState<Record<string, string>>({})
-  const defaultDate = () => new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10)
-  return <>
-    <Hero eyebrow="交付流水线" title="报告与披露" description="从报告材料检查、草稿生成到披露排期，一次看清每个 Finding 的交付状态。" actions={<span className="omv-hero-status"><i data-state={data.reports.some(item => item.status === 'ready') ? 'live' : 'idle'} />{data.reports.filter(item => item.status === 'ready').length} 个可交付</span>} />
-    <section className="omv-panel omv-report-board"><div className="omv-panel-head"><div><h3>交付队列</h3><p>报告草稿位于 .omv/reports/&lt;finding-id&gt;，provenance 与文件状态会一起检查</p></div></div>{data.reports.length === 0 ? <Empty label="还没有报告队列" description="创建 Finding 后，这里会显示材料状态。" compact /> : <ul>{data.reports.map(item => { const plans = data.disclosures.filter(plan => plan.findingId === item.findingId); const latestPlan = plans[0]; return <li key={item.findingId} className="omv-report-card"><div className="omv-report-card-head"><button type="button" className="omv-link-button" onClick={() => onFinding(item.findingId)}>{item.findingId}<Icon name="chevron" size={11} /></button><Status value={item.status} /><span>{item.package} · {maturityLabel(item.maturity)}</span></div><p>{item.nextAction}</p><div className="omv-report-artifacts">{item.artifacts.length === 0 ? <span>尚无交付 artifact</span> : item.artifacts.map(path => <code key={path}>{path}</code>)}{item.missing.map(path => <code key={`missing-${path}`} data-missing="true">缺失 · {path}</code>)}</div>{latestPlan !== undefined && <div className="omv-disclosure-plan"><Status value={latestPlan.status} /><span>下次披露：{latestPlan.dueAt.slice(0, 10)} · {disclosureChannelLabel(latestPlan.channel)}{latestPlan.recipient === undefined ? '' : ` · ${latestPlan.recipient}`}</span></div>}<div className="omv-report-actions"><button type="button" className="omv-secondary" onClick={() => onPrepare(item.findingId)}>{item.status === 'missing' ? '生成报告草稿' : '刷新报告材料'}</button><div className="omv-disclosure-inline"><input className="omv-input" type="date" aria-label={`${item.findingId} 披露日期`} value={dates[item.findingId] ?? ''} onChange={event => setDates(current => ({ ...current, [item.findingId]: event.target.value }))} /><select className="omv-select" aria-label={`${item.findingId} 披露渠道`} value={channels[item.findingId] ?? 'internal'} onChange={event => setChannels(current => ({ ...current, [item.findingId]: event.target.value as DisclosurePlan['channel'] }))}><option value="internal">内部</option><option value="vendor">厂商</option><option value="cna">CNA</option><option value="public">公开</option></select><input className="omv-input" aria-label={`${item.findingId} 披露对象`} value={recipients[item.findingId] ?? ''} placeholder="对象（可选）" onChange={event => setRecipients(current => ({ ...current, [item.findingId]: event.target.value }))} /><button type="button" className="omv-secondary" onClick={() => onSchedule(item.findingId, dates[item.findingId] ?? defaultDate(), channels[item.findingId] ?? 'internal', recipients[item.findingId])}>排期</button></div></div></li> })}</ul>}</section>
-  </>
-}
-
-type TraceMode = 'duration' | 'turns' | 'calls'
-type TraceKind = 'tool' | 'assistant' | 'context' | 'system'
-type TraceActivity = DashboardPayload['activity'][number]
-
-interface TraceBucket {
-  label: string
-  entries: TraceActivity[]
-  value: number
-  byKind: Record<TraceKind, number>
-}
-
-export function TracePage({ data, jobs }: { data: DashboardPayload; jobs: readonly JobView[] }) {
-  const [mode, setMode] = useState<TraceMode>('duration')
-  const [query, setQuery] = useState('')
-  const [kind, setKind] = useState<TraceKind | 'all'>('all')
-  const events = useMemo(() => data.activity.slice().sort(compareTraceEntries).slice(0, 240), [data.activity])
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    return events.filter(entry => {
-      if (kind !== 'all' && traceKind(entry.action) !== kind) return false
-      if (needle === '') return true
-      return [entry.action, entry.id, entry.status, entry.reason, entry.path, entry.from, entry.to]
-        .filter((value): value is string => typeof value === 'string')
-        .join(' ')
-        .toLowerCase()
-        .includes(needle)
-    })
-  }, [events, kind, query])
-  const buckets = useMemo(() => buildTraceBuckets(filtered, mode), [filtered, mode])
-  const maxValue = Math.max(1, ...buckets.map(bucket => bucket.value))
-  const activeJobs = jobs.filter(job => job.status === 'running' || job.status === 'stopping')
-  const latest = latestTraceEntry(events)
-  const latestVisible = latestTraceEntry(filtered)
-  const findingChanges = events.filter(entry => entry.action.startsWith('finding.')).length
-  const laneTotals = useMemo(() => {
-    const totals: Record<TraceKind, number> = { tool: 0, assistant: 0, context: 0, system: 0 }
-    for (const entry of filtered) totals[traceKind(entry.action)] += 1
-    return totals
-  }, [filtered])
-  const displayedEvents = filtered.slice(0, 120)
-  const eventRange = filtered.length > displayedEvents.length ? `${displayedEvents.length} / ${filtered.length}` : `${filtered.length} / ${events.length}`
-  const laneDefinitions: Array<{ kind: TraceKind; label: string }> = [
-    { kind: 'context', label: 'Evidence' },
-    { kind: 'assistant', label: 'Workflow' },
-    { kind: 'tool', label: 'Tools' },
-  ]
-
-  return <>
-    <Hero
-      eyebrow="DSH 轨迹"
-      title="审计轨迹"
-      description="把证据变化、工作流和原生任务放到同一条时间线上，像看 DSH 原生 Trace 一样追踪每一步。"
-      actions={<span className="omv-hero-status"><i data-state={activeJobs.length > 0 ? 'live' : 'idle'} />{events.length} 条事件 · {activeJobs.length} 个任务</span>}
-    />
-    <section className="omv-trace-controls" aria-label="轨迹筛选">
-      <div className="omv-trace-segmented" role="tablist" aria-label="轨迹视图">
-        {(['duration', 'turns', 'calls'] as const).map(item => <button key={item} type="button" role="tab" aria-controls="omv-trace-chart" aria-selected={mode === item} data-active={mode === item} onClick={() => setMode(item)}><span>{traceModeLabel(item)}</span><small>{item === 'duration' ? '密度' : item === 'turns' ? '回合' : '调用'}</small></button>)}
-      </div>
-      <label className="omv-trace-search"><Icon name="search" size={14} /><input value={query} aria-label="搜索轨迹" placeholder="搜索动作、Finding、原因…" onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === 'Escape') setQuery('') }} />{query !== '' && <button type="button" aria-label="清除搜索" onClick={() => setQuery('')}><Icon name="close" size={12} /></button>}</label>
-      <label className="omv-trace-filter"><span>筛选</span><select aria-label="筛选轨迹类型" value={kind} onChange={event => setKind(event.target.value as TraceKind | 'all')}><option value="all">全部事件</option><option value="tool">工具调用</option><option value="assistant">工作流</option><option value="context">上下文</option><option value="system">系统</option></select></label>
-    </section>
-
-    <section className="omv-trace-layout">
-      <article className="omv-panel omv-trace-chart-panel" id="omv-trace-chart" data-empty={filtered.length === 0 ? 'true' : undefined}>
-        <div className="omv-panel-head omv-trace-chart-head"><div><h3>Event density</h3><p>{traceModeLabel(mode)} · {filtered.length} 条可见事件</p></div><span>{latestVisible === undefined ? '当前筛选无事件' : `最近 ${relativeTime(latestVisible.timestamp)}`}</span></div>
-        <div className="omv-trace-plot" data-empty={filtered.length === 0 ? 'true' : undefined} role="img" aria-label={`轨迹${traceModeLabel(mode)}密度图`}>
-          <div className="omv-trace-y-axis"><span>高</span><span>中</span><span>低</span></div>
-          <div className="omv-trace-bars">{buckets.map((bucket, index) => <span key={`${mode}-${bucket.label}-${index}`} className="omv-trace-bar" style={{ '--trace-height': `${bucket.value === 0 ? 3 : Math.max(8, (bucket.value / maxValue) * 100)}%`, '--trace-delay': `${index * 18}ms` } as CSSProperties} title={`${bucket.label} · ${bucket.value === 0 ? '无事件' : `${bucket.value} ${traceModeLabel(mode)}`}`}><i /></span>)}</div>
-          {filtered.length === 0 && <div className="omv-trace-chart-empty"><Icon name="search" size={15} /><span>当前筛选没有时间线事件</span></div>}
-        </div>
-        <div className="omv-trace-axis" aria-hidden>{buckets.map((bucket, index) => <span key={`${bucket.label}-axis-${index}`}>{index % 4 === 0 ? bucket.label : ''}</span>)}</div>
-        <div className="omv-trace-lanes" aria-label="轨迹来源分布">{laneDefinitions.map(lane => <div className="omv-trace-lane" key={lane.kind}><span>{lane.label}<b>{laneTotals[lane.kind]}</b></span><div className="omv-trace-lane-track">{buckets.map((bucket, index) => <i key={`${lane.kind}-${index}`} data-kind={lane.kind} className="omv-trace-lane-cell" style={{ '--trace-intensity': `${bucket.byKind[lane.kind] === 0 ? 0.08 : Math.min(1, .22 + bucket.byKind[lane.kind] / Math.max(1, bucket.entries.length))}` } as CSSProperties} title={`${lane.label} · ${bucket.label} · ${bucket.byKind[lane.kind]} 条`} />)}</div></div>)}</div>
-      </article>
-      <div className="omv-trace-stats" aria-label="轨迹摘要">
-        <Metric label="事件总数" value={events.length} foot={filtered.length === events.length ? '当前工作区活动流' : `筛选后 ${filtered.length} 条`} icon="pulse" color="var(--omv-blue)" />
-        <Metric label="活跃任务" value={activeJobs.length} foot={jobs.length === 0 ? '没有后台任务' : `${jobs.length} 个任务已接入`} icon="radar" color="var(--omv-green)" />
-        <Metric label="Finding 变化" value={findingChanges} foot="证据状态写入" icon="finding" color="var(--omv-orange)" />
-        <Metric label="最近更新" value={latest === undefined ? '—' : relativeTime(latest.timestamp)} foot={latest === undefined ? '等待同步' : formatTime(latest.timestamp)} icon="refresh" color="var(--omv-purple)" />
-      </div>
-    </section>
-
-    {jobs.length > 0 && <section className="omv-panel omv-trace-jobs"><div className="omv-panel-head"><div><h3>Native tasks</h3><p>当前 DSH 会话中的后台任务，与轨迹事件共享刷新节奏。</p></div><span>{activeJobs.length > 0 ? `${activeJobs.length} 个运行中` : '全部已收敛'}</span></div><div className="omv-trace-job-grid">{jobs.slice(0, 6).map(job => <article className="omv-trace-job" data-state={job.status} key={job.id}><div><i /><strong>{job.label}</strong></div><code>{job.id}</code><span>{statusLabel(job.status)}{job.detail === undefined ? '' : ` · ${firstLine(job.detail)}`}</span></article>)}</div></section>}
-
-    <section className="omv-panel omv-trace-stream"><div className="omv-panel-head"><div><h3>事件流</h3><p>按时间顺序保留证据写入、工作流动作和工具调用的可检索记录。</p></div><span>{eventRange}</span></div>{filtered.length === 0 ? <Empty label="没有匹配的轨迹事件" description="调整搜索关键词或筛选条件后重试。" compact /> : <ol className="omv-trace-events">{displayedEvents.map((entry, index) => { const eventKind = traceKind(entry.action); return <li className="omv-trace-event" data-kind={eventKind} aria-label={`${traceKindLabel(eventKind)} ${activityLabel(entry.action)}${entry.id === undefined ? '' : ` · ${entry.id}`}`} style={{ '--trace-delay': `${Math.min(index, 24) * 24}ms` } as CSSProperties} key={`${entry.timestamp}-${entry.action}-${entry.id ?? 'workspace'}-${index}`}><div className="omv-trace-event-rail"><i data-kind={eventKind} /><span /></div><div className="omv-trace-event-main"><div className="omv-trace-event-title"><span className="omv-trace-badge" data-kind={eventKind}>{traceKindLabel(eventKind)}</span><strong>{activityLabel(entry.action)}{entry.id === undefined ? '' : ` · ${entry.id}`}</strong></div><p className="omv-trace-event-detail"><code>{traceEventDetail(entry)}</code><time title={formatTime(entry.timestamp)}>{relativeTime(entry.timestamp)}</time></p></div></li> })}</ol>}</section>
-  </>
-}
-
-export function traceKind(action: string): TraceKind {
-  const value = action.toLowerCase()
-  if (/(repro|radar|threatmap|report|submission)/u.test(value)) return 'tool'
-  if (/(workspace|source)/u.test(value)) return 'context'
-  if (/(finding|campaign|dedup|verification)/u.test(value)) return 'assistant'
-  return 'system'
-}
-
-export function traceKindLabel(kind: TraceKind): string {
-  return kind === 'tool' ? 'TOOL' : kind === 'assistant' ? 'WORKFLOW' : kind === 'context' ? 'CONTEXT' : 'SYSTEM'
-}
-
-export function traceModeLabel(mode: TraceMode): string {
-  return mode === 'duration' ? 'Duration' : mode === 'turns' ? 'Turns' : 'Calls'
-}
-
-export function traceEventDetail(entry: TraceActivity): string {
-  const details = [entry.status, entry.reason, entry.path, entry.from === undefined || entry.to === undefined ? undefined : `${entry.from} → ${entry.to}`]
-  return details.filter((value): value is string => typeof value === 'string' && value.trim() !== '').join(' · ') || '工作区活动已记录'
-}
-
-export function latestTraceEntry(entries: readonly TraceActivity[]): TraceActivity | undefined {
-  return entries.reduce<TraceActivity | undefined>((latest, entry) => {
-    if (latest === undefined) return entry
-    const currentTime = Date.parse(entry.timestamp)
-    const latestTime = Date.parse(latest.timestamp)
-    return Number.isFinite(currentTime) && (!Number.isFinite(latestTime) || currentTime > latestTime) ? entry : latest
-  }, undefined)
-}
-
-export function compareTraceEntries(left: TraceActivity, right: TraceActivity): number {
-  const leftTime = Date.parse(left.timestamp)
-  const rightTime = Date.parse(right.timestamp)
-  if (!Number.isFinite(leftTime) && !Number.isFinite(rightTime)) return 0
-  if (!Number.isFinite(leftTime)) return 1
-  if (!Number.isFinite(rightTime)) return -1
-  return rightTime - leftTime
-}
-
-export function buildTraceBuckets(entries: readonly TraceActivity[], mode: TraceMode): TraceBucket[] {
-  const count = 24
-  const validTimes = entries.map(entry => Date.parse(entry.timestamp)).filter(Number.isFinite)
-  const start = validTimes.length === 0 ? Date.now() - 86_400_000 : Math.min(...validTimes)
-  const observedSpan = validTimes.length < 2 ? 0 : Math.max(...validTimes) - start
-  // Keep the plot focused on the observed trace window. A full-day minimum made
-  // a short, active session collapse into two bars at the far left.
-  const span = validTimes.length < 2 ? 3_600_000 : Math.max(900_000, observedSpan)
-  const buckets = Array.from({ length: count }, (_, index): TraceBucket => ({
-    label: new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }).format(new Date(start + (span * index) / (count - 1))),
-    entries: [],
-    value: 0,
-    byKind: { tool: 0, assistant: 0, context: 0, system: 0 },
-  }))
-  entries.forEach((entry, index) => {
-    const timestamp = Date.parse(entry.timestamp)
-    const position = Number.isFinite(timestamp) ? Math.round(((timestamp - start) / span) * (count - 1)) : Math.round((index / Math.max(1, entries.length - 1)) * (count - 1))
-    const bucket = buckets[Math.max(0, Math.min(count - 1, position))]
-    if (bucket === undefined) return
-    bucket.entries.push(entry)
-    bucket.byKind[traceKind(entry.action)] += 1
-  })
-  return buckets.map(bucket => {
-    const turns = bucket.entries.filter(entry => traceKind(entry.action) !== 'tool').length
-    const calls = bucket.byKind.tool
-    bucket.value = mode === 'duration' ? bucket.entries.length : mode === 'turns' ? turns : calls
-    return bucket
-  })
-}
-
-export function FindingDetail({ payload, busy, currentSessionId, onClose, onAction, onWorkflow, onLink, onOpenSession, onStartReproduction, onScanDedup, onUpdateDedup, onUpdateReview, onAddReviewNote, onPrepareReport, onScheduleDisclosure }: {
+export function FindingDetail({ payload, busy, currentSessionId, onClose, onAction, onWorkflow, onLink, onOpenSession, onStartReproduction, onScanDedup, onUpdateDedup }: {
   payload: FindingPayload
   busy: boolean
   currentSessionId: SessionId
@@ -591,12 +352,8 @@ export function FindingDetail({ payload, busy, currentSessionId, onClose, onActi
   onStartReproduction: (findingId: string) => void
   onScanDedup: (findingId: string) => void
   onUpdateDedup: (findingId: string, status: DedupStatus, matchId?: string) => void
-  onUpdateReview: (findingId: string, status: ReviewStatus, assignee?: string) => void
-  onAddReviewNote: (findingId: string, body: string) => void
-  onPrepareReport: (findingId: string) => void
-  onScheduleDisclosure: (findingId: string, date: string, channel: DisclosurePlan['channel']) => void
 }) {
-  const { detail, evidence, doctor, review, collaboration, dedup, reportPack } = payload
+  const { detail, evidence, doctor, review, dedup } = payload
   const issues = doctor?.issues ?? []
   const source = valueAt(evidence, 'evidence.source')
   const sink = valueAt(evidence, 'evidence.sink')
@@ -639,20 +396,9 @@ export function FindingDetail({ payload, busy, currentSessionId, onClose, onActi
             {payload.reproductionRuns.length === 0 ? <div className="omv-inline-empty"><Empty label="尚无结构化复现 Run；使用复现工作流开始" compact /><button type="button" className="omv-secondary" disabled={busy || detail.archived} onClick={() => onStartReproduction(detail.id)}>开始复现</button></div> : <><ul className="omv-repro-runs">{payload.reproductionRuns.map(run => <li key={run.id}><Status value={run.status} /><div><strong>{run.command ?? run.id}</strong><span>{formatTime(run.updatedAt)}{run.exitCode === undefined ? '' : ` · exit ${run.exitCode}`} · {run.artifacts.length} artifacts</span></div>{run.sessionId !== undefined && <button type="button" className="omv-secondary" onClick={() => onOpenSession(run.sessionId!)}>会话</button>}</li>)}</ul><div className="omv-section-footer"><button type="button" className="omv-secondary" disabled={busy || detail.archived} onClick={() => onStartReproduction(detail.id)}>再开一个 Run</button></div></>}
           </Section>
           <Section title="去重情报" meta={`${dedup.status === 'unknown' ? '尚未扫描' : dedup.status} · ${dedup.matches.length} 个匹配`}>
-            <div className="omv-dedup-head"><div><strong>{dedup.nextAction}</strong><span>{dedup.scannedAt === undefined ? '扫描本地 Finding 与 Radar 信号，建立可追溯比对。' : `最近扫描：${formatTime(dedup.scannedAt)} · 来源：${dedup.sources.join('、') || '本地'}`}</span></div><button type="button" className="omv-secondary" disabled={busy || detail.archived} onClick={() => onScanDedup(detail.id)}>{dedup.scannedAt === undefined ? '开始扫描' : '重新扫描'}</button></div>
+            <div className="omv-dedup-head"><div><strong>{dedup.nextAction}</strong><span>{dedup.scannedAt === undefined ? '扫描本地 Finding，建立可追溯比对。' : `最近扫描：${formatTime(dedup.scannedAt)} · 来源：${dedup.sources.join('、') || '本地'}`}</span></div><button type="button" className="omv-secondary" disabled={busy || detail.archived} onClick={() => onScanDedup(detail.id)}>{dedup.scannedAt === undefined ? '开始扫描' : '重新扫描'}</button></div>
             {dedup.matches.length > 0 && <ul className="omv-dedup-list">{dedup.matches.map(match => <li key={match.id}><div><strong>{match.title}</strong><span>{match.reasons.join(' · ')}</span><code>{match.source} · 相似度 {match.score}%{match.targetFindingId === undefined ? '' : ` · ${match.targetFindingId}`}</code></div><div className="omv-dedup-actions"><Status value={match.status} />{match.status === 'open' && <><button type="button" className="omv-secondary" disabled={busy} onClick={() => onUpdateDedup(detail.id, 'duplicate', match.id)}>确认重复</button><button type="button" className="omv-secondary" disabled={busy} onClick={() => onUpdateDedup(detail.id, 'clear', match.id)}>排除</button></>}</div></li>)}</ul>}
           </Section>
-          <Section title="协作评审" meta={statusLabel(collaboration.status)}>
-            <div className="omv-review-detail-head"><div><strong>{collaboration.assignee === undefined ? '尚未分配负责人' : `负责人：${collaboration.assignee}`}</strong><span>{collaboration.notes.length} 条意见 · 更新于 {formatTime(collaboration.updatedAt)}</span></div><select className="omv-select" value={collaboration.status} disabled={busy || detail.archived} onChange={event => onUpdateReview(detail.id, event.target.value as ReviewStatus, collaboration.assignee)}>{(['unreviewed', 'in_review', 'changes_requested', 'approved', 'rejected'] as const).map(status => <option key={status} value={status}>{statusLabel(status)}</option>)}</select></div>
-            {collaboration.notes.length > 0 && <ul className="omv-review-notes">{collaboration.notes.slice(-6).map(note => <li key={note.id}><div><strong>{note.author}</strong><span>{formatTime(note.createdAt)}</span></div><p>{note.body}</p></li>)}</ul>}
-            <ReviewNoteComposer disabled={busy || detail.archived} onSubmit={body => onAddReviewNote(detail.id, body)} />
-          </Section>
-          <Section title="报告与披露" meta={statusLabel(reportPack.status)}>
-            <div className="omv-report-detail-head"><div><strong>{reportPack.nextAction}</strong><span>{reportPack.artifacts.length} 个 artifact · {reportPack.missing.length} 项缺失{reportPack.provenanceFresh === true ? ' · provenance 新鲜' : ''}</span></div><button type="button" className="omv-secondary" disabled={busy || detail.archived} onClick={() => onPrepareReport(detail.id)}>{reportPack.status === 'missing' ? '生成草稿' : '刷新材料'}</button></div>
-            {(reportPack.artifacts.length > 0 || reportPack.missing.length > 0) && <ul className="omv-report-detail-files">{reportPack.artifacts.map(path => <li key={path}><Icon name="check" size={11} /><code>{path}</code></li>)}{reportPack.missing.map(path => <li data-missing="true" key={`missing-${path}`}><Icon name="alert" size={11} /><code>{path}</code></li>)}</ul>}
-            <DisclosureQuickSchedule disabled={busy || detail.archived} onSubmit={(date, channel) => onScheduleDisclosure(detail.id, date, channel)} />
-          </Section>
-          {payload.disclosures.length > 0 && <Section title="披露时间线" meta={`${payload.disclosures.length} 个节点`}><ul className="omv-disclosure-history">{payload.disclosures.map(plan => <li key={plan.id}><Status value={plan.status} /><div><strong>{disclosureChannelLabel(plan.channel)} · {plan.dueAt.slice(0, 10)}</strong><span>{plan.recipient ?? '未指定对象'} · 创建于 {formatTime(plan.createdAt)}</span>{plan.notes !== undefined && <p>{plan.notes}</p>}</div></li>)}</ul></Section>}
           <Section title="评审问题" meta={`${issues.length} 项`}>
             {issues.length === 0 ? <Empty label="当前没有校验问题" compact /> : <ul className="omv-issues">{issues.slice(0, 16).map((issue, index) => <li className="omv-issue" key={`${issue.id}-${index}`}><i className="omv-issue-dot" style={{ '--issue': issue.severity === 'error' ? '#ff6075' : issue.severity === 'warning' ? '#f3b85b' : '#7188ff' } as CSSProperties} /><div><strong>{issue.message}</strong><code>{issue.nextAction}</code></div></li>)}</ul>}
           </Section>
@@ -668,18 +414,6 @@ export function FindingDetail({ payload, busy, currentSessionId, onClose, onActi
       </aside>
     </>
   )
-}
-
-export function ReviewNoteComposer({ disabled, onSubmit }: { disabled: boolean; onSubmit: (body: string) => void }) {
-  const [body, setBody] = useState('')
-  const submit = () => { const value = body.trim(); if (value === '') return; onSubmit(value); setBody('') }
-  return <div className="omv-review-composer"><textarea className="omv-textarea" value={body} disabled={disabled} placeholder="记录证据疑问、复现建议或报告修改意见…" onChange={event => setBody(event.target.value)} /><button type="button" className="omv-secondary" disabled={disabled || body.trim() === ''} onClick={submit}>添加意见</button></div>
-}
-
-export function DisclosureQuickSchedule({ disabled, onSubmit }: { disabled: boolean; onSubmit: (date: string, channel: DisclosurePlan['channel']) => void }) {
-  const [date, setDate] = useState(() => new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10))
-  const [channel, setChannel] = useState<DisclosurePlan['channel']>('internal')
-  return <div className="omv-disclosure-quick"><div><span>下一次披露节点</span><strong>排期会写入本地时间线</strong></div><input className="omv-input" type="date" value={date} disabled={disabled} onChange={event => setDate(event.target.value)} /><select className="omv-select" value={channel} disabled={disabled} onChange={event => setChannel(event.target.value as DisclosurePlan['channel'])}><option value="internal">内部</option><option value="vendor">厂商</option><option value="cna">CNA</option><option value="public">公开</option></select><button type="button" className="omv-secondary" disabled={disabled || date === ''} onClick={() => onSubmit(date, channel)}>排期</button></div>
 }
 
 export function NewFindingDialog({ busy, onClose, onSubmit }: { busy: boolean; onClose: () => void; onSubmit: (request: ActionRequest) => void }) {

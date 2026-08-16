@@ -3,7 +3,7 @@ export const OMV_SETTINGS_NAMESPACE = 'dsh-omv'
 /** Browser-only fallback key for DSH rc.6, whose Host API allowlist is fixed. */
 export const OMV_LOCAL_TAB_KEY = 'dsh-omv.default-tab'
 
-export const OMV_TABS = ['overview', 'findings', 'quality', 'reproduction', 'campaigns', 'radar', 'review', 'reports', 'activity', 'search'] as const
+export const OMV_TABS = ['overview', 'findings', 'quality', 'reproduction', 'campaigns', 'search'] as const
 export type OmvSettingsTab = typeof OMV_TABS[number]
 
 export interface OmvSettings {

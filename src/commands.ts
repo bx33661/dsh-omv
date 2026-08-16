@@ -200,19 +200,6 @@ export function registerOmvCommands(ctx: Context, workbench: OmvWorkbench, runti
   })
 
   ctx.commands.register({
-    name: 'omv-radar',
-    description: '查看当前工作区的 Radar 观察项与最近被动情报信号',
-    handler: invocation => run(invocation, workbench, async scoped => {
-      const radar = await scoped.radar()
-      return [
-        `Radar：${radar.watch.length} 个观察项 · ${radar.events.length} 条事件`,
-        `Watchlist：${radar.watchlistExists ? radar.watchlistPath : 'missing'}`,
-        ...radar.events.slice(0, 8).map(event => `- ${event.ecosystem}:${event.package ?? event.keyword ?? 'unknown'} · ${event.type} · ${event.title}`),
-      ].join('\n')
-    }),
-  })
-
-  ctx.commands.register({
     name: 'omv-search',
     description: '跨 Finding、Campaign、Radar 和活动记录搜索 OMV 工作区',
     input: { hint: '<query>' },
@@ -267,18 +254,6 @@ export function registerOmvCommands(ctx: Context, workbench: OmvWorkbench, runti
   })
 
   ctx.commands.register({
-    name: 'omv-radar-candidate',
-    description: '将 Radar 队列信号转成 Evidence.v1 Candidate',
-    input: { hint: '<queue-id> [finding-id]' },
-    handler: invocation => run(invocation, workbench, async scoped => {
-      const [queueId, findingId] = words(invocation.rawInput)
-      if (queueId === undefined) throw new Error('radar queue id is required')
-      const result = await scoped.action({ action: 'radar.queue.convert', id: queueId, ...(findingId === undefined ? {} : { findingId }) }) as { findingId: string }
-      return `Radar Candidate 已创建：${result.findingId}`
-    }),
-  })
-
-  ctx.commands.register({
     name: 'omv-dedup',
     description: '扫描并记录 Finding 的本地与 Radar 去重结论',
     input: { hint: '<finding-id> [scan|clear|duplicate|unknown]' },
@@ -292,47 +267,6 @@ export function registerOmvCommands(ctx: Context, workbench: OmvWorkbench, runti
       if (operation !== 'clear' && operation !== 'duplicate' && operation !== 'unknown') throw new Error('operation must be scan, clear, duplicate, or unknown')
       const result = await scoped.action({ action: 'dedup.update', id, dedupStatus: operation === 'clear' ? 'clear' : operation === 'duplicate' ? 'duplicate' : 'unknown', sessionId: invocation.agent.session.header.id })
       return `去重结论已更新：${id} → ${operation}\n${JSON.stringify(result, null, 2)}`
-    }),
-  })
-
-  ctx.commands.register({
-    name: 'omv-review',
-    description: '更新 Finding 评审状态并查看协作意见',
-    input: { hint: '<finding-id> [unreviewed|in_review|changes_requested|approved|rejected] [assignee]' },
-    handler: invocation => run(invocation, workbench, async scoped => {
-      const [id, status, assignee] = words(invocation.rawInput)
-      if (id === undefined) throw new Error('finding id is required')
-      if (status === undefined) return JSON.stringify(await scoped.action({ action: 'review.inspect', id }), null, 2)
-      if (!isReviewStatus(status)) throw new Error('status must be unreviewed, in_review, changes_requested, approved, or rejected')
-      const result = await scoped.action({ action: 'review.update', id, reviewStatus: status, ...(assignee === undefined ? {} : { assignee }), sessionId: invocation.agent.session.header.id })
-      return `评审状态已更新：${id} → ${status}\n${JSON.stringify(result, null, 2)}`
-    }),
-  })
-
-  ctx.commands.register({
-    name: 'omv-report',
-    description: '检查或生成 Finding 的报告材料与 provenance',
-    input: { hint: '<finding-id> [inspect|prepare]' },
-    handler: invocation => run(invocation, workbench, async scoped => {
-      const [id, operation = 'inspect'] = words(invocation.rawInput)
-      if (id === undefined) throw new Error('finding id is required')
-      const action = operation === 'prepare' ? 'report.prepare' : operation === 'inspect' ? 'report.inspect' : undefined
-      if (action === undefined) throw new Error('operation must be inspect or prepare')
-      const result = await scoped.action({ action, id, sessionId: invocation.agent.session.header.id })
-      return `${operation === 'prepare' ? '报告材料已生成' : '报告材料状态'}：${id}\n${JSON.stringify(result, null, 2)}`
-    }),
-  })
-
-  ctx.commands.register({
-    name: 'omv-disclose',
-    description: '为 Finding 建立可追踪的披露时间线',
-    input: { hint: '<finding-id> <YYYY-MM-DD> [vendor|cna|public|internal]' },
-    handler: invocation => run(invocation, workbench, async scoped => {
-      const [id, date, channel = 'internal'] = words(invocation.rawInput)
-      if (id === undefined || date === undefined) throw new Error('finding id and disclosure date are required')
-      if (!isDisclosureChannel(channel)) throw new Error('channel must be vendor, cna, public, or internal')
-      const result = await scoped.action({ action: 'disclosure.schedule', id, disclosureDate: date, disclosureChannel: channel, sessionId: invocation.agent.session.header.id })
-      return `披露时间线已排期：${id} · ${date} · ${channel}\n${JSON.stringify(result, null, 2)}`
     }),
   })
 }
@@ -369,10 +303,3 @@ function isLaneStatus(value: string | undefined): value is 'completed' | 'failed
   return value === 'completed' || value === 'failed' || value === 'blocked' || value === 'awaiting_evidence'
 }
 
-function isReviewStatus(value: string | undefined): value is 'unreviewed' | 'in_review' | 'changes_requested' | 'approved' | 'rejected' {
-  return value === 'unreviewed' || value === 'in_review' || value === 'changes_requested' || value === 'approved' || value === 'rejected'
-}
-
-function isDisclosureChannel(value: string | undefined): value is 'vendor' | 'cna' | 'public' | 'internal' {
-  return value === 'vendor' || value === 'cna' || value === 'public' || value === 'internal'
-}

@@ -22,7 +22,6 @@ async function fixture(): Promise<OmvWorkbench> {
     activityLimit: 20,
     refreshIntervalMs: 0,
     campaignConcurrency: 3,
-    radarIntervalMs: 0,
     watchDebounceMs: 10,
     eventHeartbeatMs: 20_000,
     httpBodyLimitBytes: 256 * 1024,

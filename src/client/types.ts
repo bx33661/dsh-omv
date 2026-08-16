@@ -1,7 +1,6 @@
 import type { ISessions, SettingsScope, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type {
   DashboardPayload,
-  DisclosurePlan,
   EvidenceAssessment,
   EvidenceCheckState,
   WorkflowIntent,
@@ -35,8 +34,8 @@ export interface SettingsInjected {
   settings: SettingsScope<OmvSettings>
 }
 
-export const OMV_COMMANDS = ['omv', 'omv-health', 'omv-runtime', 'omv-finding', 'omv-validate', 'omv-init', 'omv-new', 'omv-link', 'omv-repro', 'omv-promote', 'omv-run', 'omv-campaign', 'omv-campaign-repair', 'omv-campaign-seed', 'omv-radar', 'omv-search', 'omv-campaign-run', 'omv-campaign-lane', 'omv-quality', 'omv-radar-candidate', 'omv-dedup', 'omv-review', 'omv-report', 'omv-disclose'] as const
+export const OMV_COMMANDS = ['omv', 'omv-health', 'omv-runtime', 'omv-finding', 'omv-validate', 'omv-init', 'omv-new', 'omv-link', 'omv-repro', 'omv-promote', 'omv-run', 'omv-campaign', 'omv-campaign-repair', 'omv-campaign-seed', 'omv-search', 'omv-campaign-run', 'omv-campaign-lane', 'omv-quality', 'omv-dedup'] as const
 
 export type IconName = 'shield' | 'grid' | 'finding' | 'radar' | 'pulse' | 'refresh' | 'close' | 'plus' | 'check' | 'gauge' | 'alert' | 'chevron' | 'search' | 'terminal' | 'arrowUp' | 'inbox' | 'folder'
 
-export type { DashboardPayload, DisclosurePlan, EvidenceAssessment, EvidenceCheckState, SessionId, WorkflowIntent }
+export type { DashboardPayload, EvidenceAssessment, EvidenceCheckState, SessionId, WorkflowIntent }

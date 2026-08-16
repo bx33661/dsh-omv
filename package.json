@@ -1,6 +1,6 @@
 {
   "name": "dsh-omv",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "OMV Audit Desk: an evidence-first vulnerability audit workbench for DeepSeek Harness",
   "type": "module",
   "main": "lib/index.js",

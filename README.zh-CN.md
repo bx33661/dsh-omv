@@ -96,7 +96,7 @@ dsh --profile web
 
 ```bash
 npm pack
-dsh plugin --profile web add ./dsh-omv-1.0.6.tgz
+dsh plugin --profile web add ./dsh-omv-1.0.7.tgz
 ```
 
 ## 指向 OMV 工作区

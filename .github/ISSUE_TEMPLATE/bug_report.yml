@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a reproducible problem in the DSH-native audit workbench.
+title: "[Bug] "
+labels:
+  - "type: bug"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve dsh-omv. Please remove secrets, tokens, private URLs, and sensitive workspace data before posting logs.
+  - type: input
+    id: dsh-version
+    attributes:
+      label: DSH version
+      description: Include the output of dsh --version or the version shown by your installation.
+      placeholder: 0.1.0-rc.6
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: dsh-omv version
+      placeholder: 1.0.6
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Runtime
+      description: Node.js version and operating system.
+      placeholder: Node.js 22.23.1 · macOS 15
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Give the smallest sequence that reproduces the issue.
+      placeholder: |
+        1. Start the web profile with ...
+        2. Open Vulnerability audit ...
+        3. Select ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots
+      description: Redact credentials, private paths, tokens, and sensitive audit data.
+      render: text

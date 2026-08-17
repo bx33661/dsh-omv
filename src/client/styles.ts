@@ -401,28 +401,31 @@ export const WORKBENCH_CSS = String.raw`
 .omv-activity-row p { margin: 4px 0 0; color: var(--omv-faint); font-size: 12px; }
 
 @keyframes omv-fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes omv-slide-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes omv-pop-in { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (prefers-reduced-motion: reduce) {
   .omv-detail-backdrop, .omv-detail { animation: none !important; }
 }
 .omv-detail-backdrop {
-  position: absolute; inset: 0; z-index: 5; background: rgba(15, 20, 32, .32); backdrop-filter: blur(2px);
-  animation: omv-fade-in .18s ease both;
+  position: absolute; inset: 0; z-index: 5; overflow: auto;
+  background: rgba(10, 12, 20, .5); backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center; padding: 32px;
+  animation: omv-fade-in .16s ease both;
 }
 .omv-detail {
-  position: absolute; z-index: 6; top: 0; right: 0; bottom: 0; width: min(720px, 96%); overflow: auto;
-  border-left: 1px solid var(--omv-line); background: var(--omv-surface); box-shadow: var(--omv-shadow-lg);
-  animation: omv-slide-in .22s cubic-bezier(.22, .61, .36, 1) both;
+  position: relative; z-index: 6; width: min(860px, 100%); max-height: min(88vh, 900px); overflow: auto;
+  border: 1px solid var(--omv-line); border-radius: 16px; background: var(--omv-surface); box-shadow: var(--omv-shadow-lg);
+  animation: omv-pop-in .2s cubic-bezier(.22, .61, .36, 1) both;
 }
 .omv-detail-head {
-  position: sticky; z-index: 2; top: 0; min-height: 64px; padding: 12px 20px; border-bottom: 1px solid var(--omv-line);
+  position: sticky; z-index: 2; top: 0; min-height: 64px; padding: 14px 22px; border-bottom: 1px solid var(--omv-line);
+  border-radius: 16px 16px 0 0;
   background: color-mix(in srgb, var(--omv-surface) 92%, transparent); backdrop-filter: blur(6px); display: flex; align-items: center; gap: 12px;
   box-shadow: inset 0 -2px 0 0 color-mix(in srgb, var(--omv-violet) 30%, transparent);
 }
 .omv-detail-head-copy { min-width: 0; flex: 1; }
 .omv-detail-head h2 { margin: 0; overflow: hidden; font-size: 16px; font-weight: 650; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
 .omv-detail-head p { margin: 4px 0 0; color: var(--omv-faint); font-size: 11px; }
-.omv-detail-body { padding: 22px; }
+.omv-detail-body { padding: 22px 24px 26px; }
 .omv-detail-summary { display: grid; grid-template-columns: 104px 1fr; gap: 18px; margin-bottom: 16px; }
 .omv-maturity-hero {
   --maturity: var(--omv-faint); min-height: 100px; padding: 12px; border: 1px solid var(--omv-line); border-radius: 12px;
@@ -1004,15 +1007,7 @@ button.omv-chain-card { cursor: pointer; }
 .omv-quality-queue:hover { transform: none; border-color: var(--omv-line); background: var(--omv-hover); }
 .omv-quality-queue strong { font-size: 28px; letter-spacing: -.04em; }
 .omv-repro-card{ padding: 15px 17px; }
-.omv-repro-card:hover{ background: var(--omv-hover); }.omv-detail {
-  width: min(720px, 96%);
-  background: var(--omv-surface);
-  box-shadow: -8px 0 20px rgba(18, 24, 40, .08);
-}
-.omv-detail-backdrop { background: rgba(15, 20, 32, .18); backdrop-filter: none; }
-.omv-detail-head { min-height: 68px; padding: 12px 20px; background: var(--omv-surface); backdrop-filter: none; }
-.omv-detail-head h2 { font-size: 16px; }
-.omv-detail-body { padding: 22px; }
+.omv-repro-card:hover{ background: var(--omv-hover); }
 .omv-section { margin-top: 14px; border-radius: 10px; box-shadow: var(--omv-shadow-xs); }
 .omv-section-title { min-height: 44px; padding: 0 15px; background: color-mix(in srgb, var(--omv-bg) 45%, var(--omv-surface)); }
 .omv-section-title h3 { font-size: 12.5px; }
@@ -1047,6 +1042,9 @@ button.omv-chain-card { cursor: pointer; }
   .omv-hero::after { opacity: .2; }
   .omv-hero h2 { font-size: 21px; }
   .omv-metric { min-height: 100px; padding: 15px; }
+  .omv-detail-backdrop { padding: 0; align-items: stretch; }
+  .omv-detail { width: 100%; max-height: none; border-radius: 0; border: 0; }
+  .omv-detail-head { border-radius: 0; }
   .omv-detail-body { padding: 16px; }
   .omv-surface-lists { grid-template-columns: 1fr; }
 }

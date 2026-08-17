@@ -16,8 +16,9 @@ import type {
 } from '../contracts.js'
 import { OMV_TABS } from '../settings.js'
 import { dedupComplete, dedupExistingCve, dedupSources, findingIdError } from './derive.js'
+import { EvidenceFlowCanvas } from './flow-canvas.js'
+import { CampaignWarRoom } from './war-room.js'
 import type { Tab, IconName } from './types.js'
-import { formatCodeRef, parseCodeRef } from '../code-ref.js'
 import {
   activityColor,
   activityLabel,
@@ -233,12 +234,7 @@ export function Campaigns({ data, busy, onNew, onCampaign, onRepair }: { data: D
   )
 }
 
-export function CampaignGraph({ lanes, run }: { lanes: CampaignPayload['campaign']['lanes']; run: CampaignRun | undefined }) {
-  const laneById = new Map((run?.lanes ?? []).map(lane => [lane.laneId, lane]))
-  return <div className="omv-campaign-graph" aria-label="Campaign Lane 图谱"><div className="omv-campaign-graph-start"><Icon name="campaign" size={13} /><span>目标</span></div><div className="omv-campaign-graph-line" />{lanes.map((lane, index) => { const current = laneById.get(lane.id); return <div className="omv-campaign-graph-lane" key={lane.id}><div className="omv-campaign-graph-edge" /><article data-state={current?.status ?? 'queued'}><span>{String(index + 1).padStart(2, '0')}</span><strong>{lane.title}</strong><small>{current?.status === undefined ? '待运行' : statusLabel(current.status)}</small><code>{lane.finding_id}</code></article></div> })}</div>
-}
-
-export function CampaignDetail({ payload, busy, isBusy, currentSessionId, onClose, onStart, onControl, onOpenSession, onAction }: {
+export function CampaignDetail({ payload, busy, isBusy, currentSessionId, onClose, onStart, onControl, onOpenSession, onFinding, onAction }: {
   payload: CampaignPayload
   busy: boolean
   isBusy?: (...keys: string[]) => boolean
@@ -247,6 +243,7 @@ export function CampaignDetail({ payload, busy, isBusy, currentSessionId, onClos
   onStart: () => void
   onControl: (runId: string, control: 'pause' | 'resume' | 'cancel' | 'retry', laneId?: string) => void
   onOpenSession: (sessionId: string) => void
+  onFinding?: (findingId: string) => void
   onAction: (request: ActionRequest, message: string) => void
 }) {
   const rowBusy = isBusy ?? (() => busy)
@@ -259,14 +256,31 @@ export function CampaignDetail({ payload, busy, isBusy, currentSessionId, onClos
   const graphLanes = selectedCards.length > 0
     ? selectedCards.map(card => ({ id: card.id, title: card.title, vulnerability_class: card.vulnerabilityClass, finding_id: card.findingId }))
     : campaign.lanes
+  const runLaneById = new Map((run?.lanes ?? []).map(lane => [lane.laneId, lane]))
+  const warLanes = graphLanes.map(lane => {
+    const current = runLaneById.get(lane.id)
+    return {
+      id: lane.id,
+      title: lane.title,
+      detail: lane.vulnerability_class,
+      status: current?.status ?? 'pending',
+      attempts: current?.attempts ?? 0,
+      summary: current?.summary,
+      sessionId: current?.sessionId,
+      findingId: current?.findingId ?? lane.finding_id,
+    }
+  })
   const completed = run?.lanes.filter(lane => lane.status === 'completed').length ?? 0
   const attention = run?.lanes.filter(lane => lane.status === 'blocked' || lane.status === 'failed' || lane.status === 'awaiting_evidence').length ?? 0
   const resolved = run?.lanes.filter(lane => lane.status === 'completed' || lane.status === 'blocked' || lane.status === 'failed' || lane.status === 'cancelled').length ?? 0
   const total = run?.lanes.length ?? graphLanes.length
   const completedWidth = total === 0 ? 0 : Math.round(completed / total * 100)
   const attentionWidth = total === 0 ? 0 : Math.round(attention / total * 100)
-  const startLabel = !hasCards ? '提出攻击面' : activeRun ? run?.status === 'paused' ? 'Run 已暂停' : 'Run 运行中' : run === undefined ? 'Seed 已选卡片并运行' : '创建新一轮 Run'
-  const startDisabled = busy || activeRun || (hasCards && surfaces.selected === 0)
+  const pendingWidth = Math.max(0, 100 - completedWidth - attentionWidth)
+  const selectionBlocked = hasCards && surfaces.selected === 0
+  const startLabel = !hasCards ? '提出攻击面' : activeRun ? run?.status === 'paused' ? 'Run 已暂停' : 'Run 运行中' : run === undefined ? '开始首轮 Run' : '创建新一轮 Run'
+  const startDisabled = busy || activeRun || selectionBlocked
+  const startHint = selectionBlocked ? '先在下方选用 2–3 张攻击面卡片，再启动 Run。' : undefined
   const start = () => {
     if (!hasCards) onAction({ action: 'campaign.surfaces.propose', id: campaign.id }, '已提出攻击面卡片')
     else onStart()
@@ -277,7 +291,12 @@ export function CampaignDetail({ payload, busy, isBusy, currentSessionId, onClos
       <div className="omv-detail-head"><div className="omv-detail-head-copy"><h2>{campaign.title}</h2><p>{campaign.target.name} · {campaign.target.version} · {campaign.target.ecosystem}</p></div><Status value={run?.status ?? campaign.status} /><button type="button" className="omv-icon-button" aria-label="关闭详情" onClick={onClose}><Icon name="close" size={15} /></button></div>
       <div className="omv-detail-body">
         <div className="omv-campaign-summary"><div><span>审计深度</span><strong>{campaignLabel(campaign.budget.depth)}</strong></div><div><span>范围模式</span><strong>{campaignLabel(campaign.scope.mode)}</strong></div><div><span>输出目标</span><strong>{campaignLabel(campaign.goal.output)}</strong></div><div><span>攻击面</span><strong>{hasCards ? `${surfaces.selected} 选用 · ${surfaces.skipped} 跳过` : '尚未提出'}</strong></div></div>
-        <div className="omv-detail-actions"><button type="button" className="omv-primary" disabled={startDisabled} onClick={start}><Icon name="campaign" size={12} />{startLabel}</button>{hasCards && <button type="button" className="omv-secondary" disabled={busy} onClick={() => onAction({ action: 'campaign.surfaces.propose', id: campaign.id, force: true }, '已重新提出攻击面卡片')}>重新提出</button>}{linkedElsewhere && <button type="button" className="omv-secondary" onClick={() => onOpenSession(payload.sessionLink!.sessionId)}>打开关联会话</button>}</div>
+        <div className="omv-detail-actions">
+          <button type="button" className="omv-primary" disabled={startDisabled} title={startHint} onClick={start}><Icon name="campaign" size={12} />{startLabel}</button>
+          {hasCards && <button type="button" className="omv-secondary" disabled={busy} onClick={() => onAction({ action: 'campaign.surfaces.propose', id: campaign.id, force: true }, '已重新提出攻击面卡片')}>重新提出</button>}
+          {linkedElsewhere && <button type="button" className="omv-secondary" onClick={() => onOpenSession(payload.sessionLink!.sessionId)}>打开关联会话</button>}
+        </div>
+        {startHint !== undefined && <p className="omv-hint-line" role="note">{startHint}</p>}
         <Section title="攻击面卡片" meta={hasCards ? `${surfaces.selected} 选用 · ${surfaces.proposed} 待定 · ${surfaces.skipped} 跳过` : '开题'}>
           {surfaces.issue !== undefined && <p className="omv-surface-issue">{surfaces.issue}</p>}
           {!hasCards ? <Empty label="还没有攻击面卡片" description="先提出卡片，再选用 2–3 张未证实假说。选用不等于存在漏洞。" compact /> : (
@@ -299,12 +318,22 @@ export function CampaignDetail({ payload, busy, isBusy, currentSessionId, onClos
             ))}</ul>
           )}
         </Section>
-        {run !== undefined && <Section title="战役运行器" meta={`${statusLabel(run.status)} · 并发 ${run.concurrency}`}>
-          <div className="omv-run-head"><div><strong>{run.id}</strong><span>{formatTime(run.updatedAt)} · {completed} 完成 · {attention} 待处理 · {resolved}/{total} 已收敛</span></div><div>{run.status === 'running' || run.status === 'queued' ? <button type="button" className="omv-secondary" disabled={rowBusy(`campaign.run:${run.id}:pause:all`)} onClick={() => onControl(run.id, 'pause')}>暂停</button> : run.status === 'paused' ? <button type="button" className="omv-secondary" disabled={rowBusy(`campaign.run:${run.id}:resume:all`)} onClick={() => onControl(run.id, 'resume')}>恢复</button> : null}{activeRun && <button type="button" className="omv-secondary" disabled={rowBusy(`campaign.run:${run.id}:cancel:all`)} onClick={() => onControl(run.id, 'cancel')}>取消</button>}</div></div>
-          <div className="omv-run-progress"><i data-kind="completed" style={{ width: `${completedWidth}%` }} /><i data-kind="attention" style={{ left: `${completedWidth}%`, width: `${attentionWidth}%` }} /></div>
-          <ul className="omv-run-lanes">{run.lanes.map(lane => <li key={lane.laneId}><i data-state={lane.status} /><div><strong>{lane.title}</strong><span>{lane.findingId} · 尝试 {lane.attempts} 次{lane.summary === undefined ? '' : ` · ${lane.summary}`}</span></div><Status value={lane.status} />{lane.sessionId !== undefined && <button type="button" className="omv-secondary" onClick={() => onOpenSession(lane.sessionId!)}>会话</button>}{(lane.status === 'failed' || lane.status === 'blocked' || lane.status === 'awaiting_evidence' || lane.status === 'cancelled') && <button type="button" className="omv-secondary" disabled={rowBusy(`campaign.run:${run.id}:retry:${lane.laneId}`)} onClick={() => onControl(run.id, 'retry', lane.laneId)}>重试</button>}</li>)}</ul>
-        </Section>}
-        <Section title="审计 Lane 定义" meta={selectedCards.length > 0 ? '来自已选用的攻击面卡片' : '每条 Lane 一个 DSH 会话'}><CampaignGraph lanes={graphLanes} run={run} /><ul className="omv-lanes">{graphLanes.map(lane => <li key={lane.id}><i /><div><strong>{lane.title}</strong><span>{lane.vulnerability_class}</span></div><code>{lane.finding_id}</code></li>)}</ul></Section>
+        <Section title="作战地图" meta={run === undefined ? `${graphLanes.length} 条 Lane · 待启动` : `${statusLabel(run.status)} · 并发 ${run.concurrency} · ${resolved}/${total} 已收敛`}>
+          {run !== undefined && (
+            <>
+              <div className="omv-run-head"><div><strong>{run.id}</strong><span>{formatTime(run.updatedAt)} · {completed} 完成 · {attention} 待处理 · {total - completed - attention} 未收敛</span></div><div>{run.status === 'running' || run.status === 'queued' ? <button type="button" className="omv-secondary" disabled={rowBusy(`campaign.run:${run.id}:pause:all`)} onClick={() => onControl(run.id, 'pause')}>暂停</button> : run.status === 'paused' ? <button type="button" className="omv-secondary" disabled={rowBusy(`campaign.run:${run.id}:resume:all`)} onClick={() => onControl(run.id, 'resume')}>恢复</button> : null}{activeRun && <button type="button" className="omv-secondary" disabled={rowBusy(`campaign.run:${run.id}:cancel:all`)} onClick={() => onControl(run.id, 'cancel')}>取消</button>}</div></div>
+              <div className="omv-run-progress"><i data-kind="completed" style={{ width: `${completedWidth}%` }} /><i data-kind="attention" style={{ left: `${completedWidth}%`, width: `${attentionWidth}%` }} /><i data-kind="pending" style={{ left: `${completedWidth + attentionWidth}%`, width: `${pendingWidth}%` }} /></div>
+            </>
+          )}
+          <CampaignWarRoom
+            target={`${campaign.target.name} ${campaign.target.version}`}
+            ecosystem={campaign.target.ecosystem}
+            lanes={warLanes}
+            onControl={onControl}
+            onOpenSession={onOpenSession}
+            {...(onFinding === undefined ? {} : { onFinding })}
+          />
+        </Section>
         <Section title="运行手册" meta={payload.runbookExists ? '就绪' : '缺失'}><div className="omv-path-block"><code>{payload.runbookPath}</code><span>{payload.nextAction}</span></div></Section>
         <Section title="编排历史" meta={`${payload.history.length} 条事件`}>{payload.history.length === 0 ? <Empty label="该 Campaign 尚未在 DSH 中运行" compact /> : <ul className="omv-history">{payload.history.map(event => <li key={event.id}><i style={{ background: activityColor(event.action) }} /><div><strong>{activityLabel(event.action)}</strong><span>{formatTime(event.timestamp)} · {event.sessionId ?? '未知会话'}</span></div></li>)}</ul>}</Section>
       </div>
@@ -487,19 +516,8 @@ export function FindingDetail({ payload, busy, isBusy, currentSessionId, onClose
             <div className="omv-gate-summary">{payload.qualityGate.summary}</div>
             <ul className="omv-gate-checks">{payload.qualityGate.checks.map(check => <li key={check.id} data-state={check.state} data-blocking={check.blocking || undefined}><i><Icon name={checkStateIcon(check.state)} size={12} /></i><div><strong>{check.label}</strong><span>{check.detail}{check.nextAction === undefined ? '' : ` · ${check.nextAction}`}</span></div><small>{check.blocking ? '提交条件' : '研究建议'}</small></li>)}</ul>
           </Section>
-          <Section title="证据图谱" meta={`${payload.graph.nodes.length} 节点 · ${payload.graph.edges.length} 边`}>
-            <div className="omv-graph-flow">{payload.graph.nodes.filter(node => node.kind !== 'finding' && node.kind !== 'session' && node.kind !== 'artifact').map(node => {
-              const ref = parseCodeRef(node.value)
-              const openable = ref !== undefined && onOpenPath !== undefined
-              return (
-                <article key={node.id} data-state={node.state} {...(openable ? { role: 'button' as const, tabIndex: 0, 'data-openable': 'true', onClick: () => onOpenPath(ref.path), onKeyDown: (event: React.KeyboardEvent) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenPath(ref.path) } } } : {})}>
-                  <span>{node.kind}</span>
-                  <strong>{node.label}</strong>
-                  <code>{ref === undefined ? node.value : formatCodeRef(ref)}</code>
-                  {ref?.note ? <small>{ref.note}</small> : node.line !== undefined && <small>Evidence L{node.line}</small>}
-                </article>
-              )
-            })}</div>
+          <Section title="证据图谱" meta={`攻击路径 · ${payload.graph.nodes.length} 节点 · ${payload.graph.edges.length} 边`}>
+            <EvidenceFlowCanvas graph={payload.graph} {...(onOpenPath === undefined ? {} : { onOpenPath })} />
           </Section>
           <Section title="复现运行" meta={`${payload.reproductionRuns.length} 次尝试`}>
             {payload.reproductionRuns.length === 0 ? <div className="omv-inline-empty"><Empty label="尚无结构化复现 Run；使用复现工作流开始" compact /><button type="button" className="omv-secondary" disabled={busy || detail.archived} onClick={() => onStartReproduction(detail.id)}>开始复现</button></div> : <><ul className="omv-repro-runs">{payload.reproductionRuns.map(run => <li key={run.id}><Status value={run.status} /><div><strong>{run.command ?? run.id}</strong><span>{formatTime(run.updatedAt)}{run.exitCode === undefined ? '' : ` · exit ${run.exitCode}`} · {run.artifacts.length} artifacts</span></div>{run.sessionId !== undefined && <button type="button" className="omv-secondary" onClick={() => onOpenSession(run.sessionId!)}>会话</button>}</li>)}</ul><div className="omv-section-footer"><button type="button" className="omv-secondary" disabled={busy || detail.archived} onClick={() => onStartReproduction(detail.id)}>再开一个 Run</button></div></>}

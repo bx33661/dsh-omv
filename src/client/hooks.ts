@@ -277,3 +277,94 @@ export function useCampaignRunner(options: CampaignRunnerOptions): CampaignRunne
 
   return { watch, pump, control }
 }
+
+// ── Canvas viewport (shared by evidence flow + campaign war room) ────────────
+
+export interface CanvasViewportState {
+  k: number
+  tx: number
+  ty: number
+}
+
+export interface CanvasViewport {
+  viewport: CanvasViewportState
+  fit: () => void
+  zoomBy: (factor: number) => void
+  onWheel: (event: React.WheelEvent) => void
+  onPointerDown: (event: React.PointerEvent<HTMLElement>) => void
+  onPointerMove: (event: React.PointerEvent<HTMLElement>) => void
+  onPointerUp: () => void
+  onPointerCancel: () => void
+}
+
+const CANVAS_MIN_SCALE = 0.4
+const CANVAS_MAX_SCALE = 2.2
+
+/**
+ * Fit-on-mount / fit-on-resize scale for an oversized SVG canvas plus cursor
+ * anchored wheel zoom and drag panning. `resetKey` re-fits whenever the
+ * underlying content identity changes (e.g. a new graph).
+ */
+export function useCanvasViewport(
+  containerRef: React.RefObject<HTMLElement | null>,
+  contentWidth: number,
+  contentHeight: number,
+  maxViewHeight = 320,
+  resetKey?: string,
+): CanvasViewport {
+  const [viewport, setViewport] = useState<CanvasViewportState>({ k: 1, tx: 0, ty: 0 })
+  const dragRef = useRef<{ x: number; y: number; tx: number; ty: number } | undefined>(undefined)
+
+  const fit = useCallback(() => {
+    const width = containerRef.current?.clientWidth ?? 0
+    if (width === 0) return
+    const k = Math.min(1.08, Math.max(CANVAS_MIN_SCALE, (width - 24) / contentWidth))
+    const ty = Math.max(6, (Math.min(maxViewHeight, contentHeight * k) - contentHeight * k) / 2)
+    setViewport({ k, tx: 12, ty })
+  }, [containerRef, contentHeight, contentWidth, maxViewHeight])
+
+  useEffect(() => { fit() }, [fit, resetKey])
+
+  useEffect(() => {
+    const element = containerRef.current
+    if (element === null || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => { fit() })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [containerRef, fit])
+
+  const zoomBy = useCallback((factor: number) => {
+    setViewport(previous => {
+      const k = Math.min(CANVAS_MAX_SCALE, Math.max(CANVAS_MIN_SCALE, previous.k * factor))
+      const cx = (containerRef.current?.clientWidth ?? 0) / 2
+      return { k, tx: cx - ((cx - previous.tx) / previous.k) * k, ty: previous.ty }
+    })
+  }, [containerRef])
+
+  const onWheel = useCallback((event: React.WheelEvent) => {
+    if (!event.ctrlKey && !event.metaKey && Math.abs(event.deltaY) < 2) return
+    event.preventDefault()
+    setViewport(previous => {
+      const k = Math.min(CANVAS_MAX_SCALE, Math.max(CANVAS_MIN_SCALE, previous.k * (1 - event.deltaY * 0.0018)))
+      const rect = containerRef.current?.getBoundingClientRect()
+      const cx = event.clientX - (rect?.left ?? 0)
+      return { k, tx: cx - ((cx - previous.tx) / previous.k) * k, ty: previous.ty }
+    })
+  }, [containerRef])
+
+  const onPointerDown = useCallback((event: React.PointerEvent<HTMLElement>) => {
+    dragRef.current = { x: event.clientX, y: event.clientY, tx: viewport.tx, ty: viewport.ty }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }, [viewport.tx, viewport.ty])
+
+  const onPointerMove = useCallback((event: React.PointerEvent<HTMLElement>) => {
+    const drag = dragRef.current
+    if (drag === undefined) return
+    setViewport(previous => ({ ...previous, tx: drag.tx + (event.clientX - drag.x), ty: drag.ty + (event.clientY - drag.y) }))
+  }, [])
+
+  const onPointerUp = useCallback(() => { dragRef.current = undefined }, [])
+  const onPointerCancel = useCallback(() => { dragRef.current = undefined }, [])
+
+  return { viewport, fit, zoomBy, onWheel, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }
+}

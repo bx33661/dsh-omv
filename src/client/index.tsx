@@ -25,6 +25,7 @@ import {
   type OmvSettingsTab,
 } from '../settings.js'
 import { ensureWorkbenchStyles } from './styles.js'
+import { ensureRedesignedStyles } from './styles-redesign.js'
 import { OMV_COMMANDS, OMV_DISPLAY_NAME } from './types.js'
 import type { Dialog, IconName, LauncherInjected, SettingsInjected, Tab, WorkspaceSurfaceInjected } from './types.js'
 import { resolveCodeRef } from '../code-ref.js'
@@ -35,12 +36,14 @@ import {
   CampaignDetail, CommandPalette, Findings, Campaigns, FindingDetail, NewCampaignDialog, NewFindingDialog, WorkbenchErrorState,
   Overview, QualityPage, ReproductionPage, SearchPage,
 } from './pages.js'
+import { OverviewRedesign } from './pages-redesign.js'
 import { Icon, Loading } from './ui.js'
 
 export const inject = ['slots', 'sessions', 'workspaces', 'settingsScope']
 
 export function apply(ctx: ClientContext): void {
   ensureWorkbenchStyles()
+  ensureRedesignedStyles()
   const root = configuredRoot()
   const sessions = ctx.get('sessions') as unknown as ISessions
   const workspaces = ctx.get('workspaces') as unknown as IWorkspaces
@@ -354,7 +357,8 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
   }, [toast])
 
   const showFinding = useCallback(async (id: string, archived = false) => {
-    setDetail(undefined)
+    // Stale-while-revalidate: keep the visible panel until fresh data lands.
+    setCampaignDetail(undefined)
     setDetailLoading(true)
     try {
       const query = new URLSearchParams({ id, ...(archived ? { archived: 'true' } : {}) })
@@ -367,7 +371,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
   }, [projectRoot])
 
   const showCampaign = useCallback(async (id: string) => {
-    setCampaignDetail(undefined)
+    setDetail(undefined)
     setDetailLoading(true)
     try {
       setCampaignDetail(await api<CampaignPayload>(`/campaign?id=${encodeURIComponent(id)}`, undefined, projectRoot))
@@ -587,7 +591,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
             />
           ) : dashboard !== undefined ? (
             <>
-              {tab === 'overview' && <Overview data={dashboard} jobs={jobs} onRetryJob={job => { void retryJob(job) }} onTab={selectTab} onFinding={id => { void showFinding(id) }} onNew={() => setDialog('finding')} onOpenConfigured={openConfigured} />}
+              {tab === 'overview' && <OverviewRedesign data={dashboard} onTab={selectTab} onFinding={id => { void showFinding(id) }} onNew={() => setDialog('finding')} />}
               {tab === 'findings' && <Findings data={dashboard} onFinding={(id, archived) => { void showFinding(id, archived) }} onNew={() => setDialog('finding')} onOpenConfigured={openConfigured} />}
               {tab === 'quality' && <QualityPage data={dashboard} onTab={selectTab} onFinding={id => { void showFinding(id) }} onOpenConfigured={openConfigured} />}
               {tab === 'reproduction' && <ReproductionPage data={dashboard} onFinding={id => { void showFinding(id) }} onStart={id => { void startReproduction(id) }} />}
@@ -597,7 +601,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
           ) : null}
         </main>
       </div>
-      {detailLoading && <div className="omv-detail-backdrop"><Loading label="读取 Evidence.v1…" /></div>}
+      {detailLoading && detail === undefined && campaignDetail === undefined && <div className="omv-detail-backdrop"><Loading label="读取 Evidence.v1…" /></div>}
       {detail !== undefined && <FindingDetail
         payload={detail}
         busy={anyBusy}
@@ -613,7 +617,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
         onScanDedup={id => { void scanDedup(id) }}
         onUpdateDedup={(id, status, matchId) => { void updateDedup(id, status, matchId) }}
       />}
-      {campaignDetail !== undefined && <CampaignDetail payload={campaignDetail} busy={anyBusy} isBusy={isBusy} currentSessionId={sessionId} onClose={() => setCampaignDetail(undefined)} onStart={() => { void startCampaign(campaignDetail.campaign.id) }} onControl={(runId, control, laneId) => { void campaignRunner.control(runId, control, laneId) }} onOpenSession={openLinkedSession} onAction={(request, message) => { void perform({ ...request, sessionId }, message) }} />}
+      {campaignDetail !== undefined && <CampaignDetail payload={campaignDetail} busy={anyBusy} isBusy={isBusy} currentSessionId={sessionId} onClose={() => setCampaignDetail(undefined)} onStart={() => { void startCampaign(campaignDetail.campaign.id) }} onControl={(runId, control, laneId) => { void campaignRunner.control(runId, control, laneId) }} onOpenSession={openLinkedSession} onFinding={id => { void showFinding(id) }} onAction={(request, message) => { void perform({ ...request, sessionId }, message) }} />}
       {dialog === 'finding' && <NewFindingDialog busy={anyBusy} onClose={() => setDialog(null)} onSubmit={async request => { if (await perform(request, '候选漏洞已创建')) setDialog(null) }} />}
       {dialog === 'campaign' && <NewCampaignDialog busy={anyBusy} onClose={() => setDialog(null)} onSubmit={async request => { if (await perform(request, '审计战役已创建')) setDialog(null) }} />}
       {commandPaletteOpen && <CommandPalette tab={tab} onTab={next => { selectTab(next); setCommandPaletteOpen(false) }} onNewFinding={() => { setDialog('finding'); setCommandPaletteOpen(false) }} onNewCampaign={() => { setDialog('campaign'); setCommandPaletteOpen(false) }} onClose={() => setCommandPaletteOpen(false)} />}

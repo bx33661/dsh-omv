@@ -42,6 +42,7 @@ import {
 } from './runtime.js'
 import {
   ChainCard,
+  EcosystemAvatar,
   Empty,
   Field,
   Hero,
@@ -134,12 +135,12 @@ export function Overview({ data, jobs, onRetryJob, onTab, onFinding, onNew, onOp
       </div>
       <div className="omv-grid">
         <section className="omv-panel">
-          <div className="omv-panel-head"><div><h3>优先审计队列</h3><p>按证据成熟度、未决问题和下一步动作排序</p></div><button type="button" className="omv-secondary" onClick={() => onTab('findings')}>全部发现</button></div>
+          <div className="omv-panel-head"><div><h3>优先审计队列</h3><p>按证据成熟度、�����决问题和下一步动作排序</p></div><button type="button" className="omv-secondary" onClick={() => onTab('findings')}>全部发现</button></div>
           {queue.length === 0 ? <Empty label="当前工作区还没有候选漏洞" description="从一个候选开始，Evidence.v1 会保留每一步研究上下文。" action={<button type="button" className="omv-secondary" onClick={onNew}><Icon name="plus" size={12} />创建候选</button>} /> : (
             <ul className="omv-queue">
               {queue.map(finding => (
                 <li key={finding.id} className="omv-queue-row" role="button" tabIndex={0} aria-label={`打开 ${finding.id}`} onClick={() => onFinding(finding.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onFinding(finding.id) } }}>
-                  <div className="omv-finding-name"><strong>{finding.id}</strong><span>{finding.package} · {finding.vulnerability}</span></div>
+                  <div className="omv-finding-name"><EcosystemAvatar ecosystem={finding.ecosystem} /><div><strong>{finding.id}</strong><span>{finding.package} · {finding.vulnerability}</span></div></div>
                   <code className="omv-next">{finding.nextAction}</code>
                   <Maturity assessment={finding.assessment} compact />
                   <Icon name="chevron" size={14} />
@@ -197,13 +198,13 @@ export function Findings({ data, onFinding, onNew, onOpenConfigured }: {
           <tbody>
             {status !== 'archived' && active.map(finding => (
               <tr key={finding.id} tabIndex={0} role="link" aria-label={`打开 ${finding.id}`} onClick={() => onFinding(finding.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onFinding(finding.id) } }}>
-                <td data-stage={finding.stage}><div className="omv-finding-name"><strong>{finding.id}</strong><span>{finding.package} · {finding.vulnerability}</span></div></td>
+                <td data-stage={finding.stage}><div className="omv-finding-name"><EcosystemAvatar ecosystem={finding.ecosystem} /><div><strong>{finding.id}</strong><span>{finding.package} · {finding.vulnerability}</span></div></div></td>
                 <td><Status value={finding.stage} /></td><td>{finding.ecosystem}</td><td><Maturity assessment={finding.assessment} /></td><td className="omv-cell-mono">{finding.nextAction}</td>
               </tr>
             ))}
             {status === 'archived' && archived.map(finding => (
               <tr key={finding.id} tabIndex={0} role="link" aria-label={`打开 ${finding.id}`} onClick={() => onFinding(finding.id, true)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onFinding(finding.id, true) } }}>
-                <td><div className="omv-finding-name"><strong>{finding.id}</strong><span>{finding.package} · {finding.vulnerability}</span></div></td>
+                <td><div className="omv-finding-name"><EcosystemAvatar ecosystem={finding.ecosystem} /><div><strong>{finding.id}</strong><span>{finding.package} · {finding.vulnerability}</span></div></div></td>
                 <td><Status value="archived" /></td><td>{finding.ecosystem}</td><td><span className="omv-muted-copy">已归档</span></td><td className="omv-cell-mono">{finding.archiveReason}</td>
               </tr>
             ))}
@@ -306,7 +307,7 @@ export function CampaignDetail({ payload, busy, isBusy, currentSessionId, onClos
         {startHint !== undefined && <p className="omv-hint-line" role="note">{startHint}</p>}
         <Section title="攻击面卡片" meta={hasCards ? `${surfaces.selected} 选用 · ${surfaces.proposed} 待定 · ${surfaces.skipped} 跳过` : '开题'}>
           {surfaces.issue !== undefined && <p className="omv-surface-issue">{surfaces.issue}</p>}
-          {!hasCards ? <Empty label="还没有攻击面卡片" description="先提出卡片，再选用 2–3 张未证实假说。选用不等于存在漏洞。" compact /> : (
+          {!hasCards ? <Empty label="还没��攻��面卡片" description="先提出卡片，再选用 2–3 张未证实假说。选用不等于存在漏洞。" compact /> : (
             <ul className="omv-surface-cards">{surfaces.cards.map(card => (
               <li key={card.id} className="omv-surface-card" data-status={card.status}>
                 <div className="omv-surface-card-head">
@@ -501,7 +502,8 @@ export function FindingDetail({ payload, busy, isBusy, currentSessionId, onClose
             </div>
           </div>
           <Section title="DSH 会话" meta={payload.sessionLink === undefined ? '尚未关联' : formatTime(payload.sessionLink.updatedAt)}>
-            <div className="omv-session-link">
+            <div className="omv-session-link" data-linked={payload.sessionLink !== undefined}>
+              <i className="omv-session-link-icon"><Icon name="terminal" size={16} /></i>
               <div><strong>{payload.sessionLink === undefined ? '当前发现还没有调查会话' : linkIsCurrent ? '已绑定当前会话' : '已绑定其他调查会话'}</strong><code>{payload.sessionLink?.sessionId ?? currentSessionId}</code>{payload.sessionLink?.lastIntent !== undefined && <span>最近工作流：{workflowLabel(payload.sessionLink.lastIntent)}</span>}</div>
               <div>{payload.sessionLink !== undefined && !linkIsCurrent && <button type="button" className="omv-secondary" onClick={() => onOpenSession(payload.sessionLink!.sessionId)}>打开会话</button>}{!linkIsCurrent && <button type="button" className="omv-secondary" disabled={busy} onClick={onLink}>关联当前会话</button>}</div>
             </div>

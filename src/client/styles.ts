@@ -135,12 +135,17 @@ export const WORKBENCH_CSS = String.raw`
   appearance: none; border: 1px solid var(--omv-line); border-radius: 7px; cursor: pointer;
 }
 .omv-icon-button {
-  width: 30px; height: 30px; padding: 0; flex: none; display: grid; place-items: center;
+  width: 32px; height: 32px; padding: 0; flex: none; display: grid; place-items: center;
   background: transparent; color: var(--omv-muted);
 }
 .omv-icon-button:hover { background: var(--omv-hover); color: var(--omv-text); }
 .omv-icon-button:active { background: color-mix(in srgb, var(--omv-hover) 75%, var(--omv-surface)); }
 .omv-icon-button:disabled { opacity: .45; cursor: wait; }
+/* Design-spec alignment: buttons carry a leading icon at a single consistent size (14px)
+   regardless of the size= prop each call site historically passed; icon-buttons (bare glyph,
+   no label) sit one step up at 16px. CSS width/height wins over the SVG's own attributes. */
+.omv-primary svg, .omv-secondary svg, .omv-danger svg { width: 14px; height: 14px; flex: none; }
+.omv-icon-button svg { width: 16px; height: 16px; }
 .omv-palette-button { min-height: 28px; padding: 0 7px; border: 1px solid var(--omv-line); border-radius: 6px; background: var(--omv-surface); color: var(--omv-muted); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 10.5px; }
 .omv-palette-button:hover { background: var(--omv-hover); color: var(--omv-text); }
 .omv-palette-button kbd { padding: 1px 4px; border: 1px solid var(--omv-line); border-radius: 3px; color: var(--omv-faint); font: 9px/1.2 ui-monospace, monospace; }
@@ -239,13 +244,14 @@ export const WORKBENCH_CSS = String.raw`
 .omv-metric:hover { box-shadow: var(--omv-shadow-sm); transform: translateY(-1px); }
 .omv-metric-head { display: flex; align-items: center; justify-content: space-between; color: var(--omv-muted); font-size: 12px; }
 .omv-metric-icon {
-  width: 30px; height: 30px; border-radius: 10px;
+  width: 32px; height: 32px; border-radius: var(--omv-radius-sm);
   background: color-mix(in srgb, var(--metric-color, var(--omv-blue)) 12%, transparent);
   color: var(--metric-color, var(--omv-blue)); display: grid; place-items: center;
 }
-.omv-metric strong { display: block; margin-top: 12px; font-size: 28px; line-height: 1; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
-.omv-metric-foot { margin-top: 10px; display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--metric-color, var(--omv-muted)) 12%, transparent); color: var(--omv-muted); font-size: 11.5px; }
-.omv-metric-foot b { color: var(--metric-color, var(--omv-muted)); font-weight: 650; }
+.omv-metric-icon svg { width: 16px; height: 16px; }
+.omv-metric strong { display: block; margin-top: 12px; font-size: 30px; line-height: 1; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.omv-metric-foot { margin-top: 10px; display: block; color: var(--omv-faint); font-size: 12px; }
+.omv-metric-foot b { color: var(--metric-color, var(--omv-muted)); font-weight: 600; }
 
 .omv-readiness-strip {
   position: relative; display: flex; align-items: center; gap: 16px; margin-bottom: 12px; padding: 16px 20px;
@@ -289,9 +295,16 @@ export const WORKBENCH_CSS = String.raw`
  td[data-stage='candidate']::before, td[data-stage='investigating']::before { --stage-line: var(--omv-violet); }
  td[data-stage='reproducing']::before { --stage-line: var(--omv-teal); }
  td[data-stage='blocked']::before { --stage-line: var(--omv-red); }
- .omv-finding-name { min-width: 0; padding-left: 4px; }
+ .omv-finding-name { min-width: 0; padding-left: 4px; display: flex; align-items: center; gap: 10px; }
+.omv-finding-name > div { min-width: 0; }
 .omv-finding-name strong { display: block; overflow: hidden; color: var(--omv-text); font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .omv-finding-name span { display: block; margin-top: 4px; overflow: hidden; color: var(--omv-faint); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.omv-eco-avatar {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: var(--omv-radius-sm);
+  background: color-mix(in srgb, var(--eco) 15%, transparent); color: var(--eco);
+  font-size: 12.5px; font-weight: 650; text-transform: uppercase; font-variant-numeric: normal;
+}
 .omv-next { min-width: 0; overflow: hidden; color: var(--omv-muted); font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .omv-score { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 7px; color: var(--omv-muted); font-size: 11px; }
 .omv-score b { font-weight: 500; }
@@ -423,7 +436,10 @@ export const WORKBENCH_CSS = String.raw`
   animation: omv-fade-in .16s ease both;
 }
 .omv-detail {
-  position: relative; z-index: 6; width: min(860px, 100%); max-height: min(88vh, 900px); overflow: auto;
+  /* Height is capped against the panel's own box (100%), not vh: vh resolves to the whole
+     browser window, which is taller than this panel once the host chat composer/task bar
+     below it are accounted for, and would let the card spill past the panel's bottom edge. */
+  position: relative; z-index: 6; width: min(860px, 100%); max-height: min(100%, 900px); overflow: auto;
   border: 1px solid var(--omv-line); border-radius: 16px; background: var(--omv-surface); box-shadow: var(--omv-shadow-lg);
   animation: omv-pop-in .2s cubic-bezier(.22, .61, .36, 1) both;
 }
@@ -488,8 +504,14 @@ button.omv-chain-card { cursor: pointer; }
 .omv-issue-dot { width: 6px; height: 6px; margin-top: 4px; border-radius: 50%; background: var(--issue, var(--omv-blue)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--issue, var(--omv-blue)) 16%, transparent); }
 .omv-issue strong { display: block; color: var(--omv-muted); font-size: 11px; font-weight: 500; line-height: 1.4; }
 .omv-issue code { display: block; margin-top: 4px; color: var(--omv-faint); font: 10.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
-.omv-session-link { min-height: 66px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-.omv-session-link > div:first-child { min-width: 0; display: grid; gap: 3px; }
+.omv-session-link { min-height: 66px; padding: 12px 14px; display: flex; align-items: center; gap: 14px; }
+.omv-session-link-icon {
+  flex: none; width: 32px; height: 32px; border-radius: var(--omv-radius-sm); display: grid; place-items: center;
+  background: color-mix(in srgb, var(--omv-teal) 12%, transparent); color: var(--omv-teal);
+}
+.omv-session-link-icon svg { width: 16px; height: 16px; }
+.omv-session-link[data-linked='true'] .omv-session-link-icon { background: color-mix(in srgb, var(--omv-violet) 12%, transparent); color: var(--omv-violet); }
+.omv-session-link > div:first-child { flex: 1 1 auto; min-width: 0; display: grid; gap: 3px; }
 .omv-session-link strong { color: var(--omv-text); font-size: 12px; font-weight: 500; }
 .omv-session-link code { overflow: hidden; color: var(--omv-faint); font: 10.5px/1.4 ui-monospace, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .omv-session-link span { color: var(--omv-muted); font-size: 11.5px; }
@@ -908,7 +930,7 @@ button.omv-chain-card { cursor: pointer; }
 .omv-live { padding: 5px 8px; border: 1px solid var(--omv-line); border-radius: 999px; background: var(--omv-surface); }
 .omv-live[data-state='live'] > i { box-shadow: none; }
 .omv-palette-button { height: 32px; padding: 0 9px; border-radius: 7px; background: var(--omv-surface); box-shadow: none; }
-.omv-icon-button { border-radius: 7px; background: transparent; }
+.omv-icon-button { border-radius: var(--omv-radius-sm); background: transparent; }
 .omv-content {
   min-height: 0;
   background: var(--omv-bg);
@@ -954,13 +976,13 @@ button.omv-chain-card { cursor: pointer; }
 .omv-primary:active { transform: translateY(0); filter: brightness(.94); box-shadow: var(--omv-shadow-xs); }
 .omv-secondary:hover { box-shadow: var(--omv-shadow-sm); transform: translateY(-1px); }
 .omv-secondary:active { transform: translateY(0); box-shadow: var(--omv-shadow-xs); }
-.omv-metrics { gap: 12px; margin-bottom: 14px; }
+.omv-metrics { gap: 16px; margin-bottom: 16px; }
 .omv-metric {
   position: relative;
   min-height: 108px;
   padding: 17px 18px 15px;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: var(--omv-radius-md);
   box-shadow: var(--omv-shadow-xs);
   transition: box-shadow .16s ease, transform .16s ease, border-color .16s ease;
 }
@@ -971,12 +993,12 @@ button.omv-chain-card { cursor: pointer; }
 .omv-metric::before { display: none; }
 .omv-metric-head { font-size: 11.5px; }
 .omv-metric-icon {
-  width: 30px; height: 30px; border-radius: 10px;
+  width: 32px; height: 32px; border-radius: var(--omv-radius-sm);
   background: color-mix(in srgb, var(--metric-color, var(--omv-blue)) 12%, transparent);
 }
-.omv-metric strong { margin-top: 12px; font-size: 28px; font-variant-numeric: tabular-nums; }
-.omv-metric-foot { margin-top: 10px; font-size: 11.5px; }
-.omv-grid { gap: 14px; }
+.omv-metric strong { margin-top: 12px; font-size: 30px; font-variant-numeric: tabular-nums; }
+.omv-metric-foot { margin-top: 10px; font-size: 12px; }
+.omv-grid { gap: 16px; }
 .omv-panel, .omv-table-wrap, .omv-campaign { border-radius: var(--omv-radius-md); box-shadow: var(--omv-shadow-xs); }
 .omv-panel-head { min-height: 54px; padding: 0 18px; }
 .omv-panel-head h3 { font-size: 12.5px; letter-spacing: -.01em; }

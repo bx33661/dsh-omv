@@ -107,17 +107,17 @@ export function checkStateIcon(value: EvidenceCheckState): IconName {
 }
 
 export function scoreColor(value: number): string {
-  if (value >= 75) return 'var(--dsw-alias-state-success-primary, #329568)'
-  if (value >= 50) return 'var(--dsw-static-blue-400, #4d6bfe)'
+  if (value >= 75) return 'var(--dsw-alias-state-success-primary, #1f9d63)'
+  if (value >= 50) return 'var(--omv-teal, #0d8f9e)'
   if (value >= 25) return 'var(--dsw-alias-state-warn-primary, #b7791f)'
-  return 'var(--dsw-alias-state-error-primary, #d44c4c)'
+  return 'var(--dsw-alias-state-error-primary, #d6433f)'
 }
 
 export function statusColor(value: string): string {
-  if (value === 'confirmed' || value === 'report_ready' || value === 'disclosed' || value === 'active' || value === 'completed' || value === 'passed' || value === 'verified' || value === 'supported' || value === 'clear' || value === 'ready' || value === 'selected') return 'var(--dsw-alias-state-success-primary, #329568)'
-  if (value === 'candidate' || value === 'investigating' || value === 'running' || value === 'stopping' || value === 'dispatching' || value === 'reviewing' || value === 'draft' || value === 'proposed') return 'var(--dsw-static-blue-400, #4d6bfe)'
+  if (value === 'confirmed' || value === 'report_ready' || value === 'disclosed' || value === 'active' || value === 'completed' || value === 'passed' || value === 'verified' || value === 'supported' || value === 'clear' || value === 'ready' || value === 'selected') return 'var(--dsw-alias-state-success-primary, #1f9d63)'
+  if (value === 'candidate' || value === 'investigating' || value === 'running' || value === 'stopping' || value === 'dispatching' || value === 'reviewing' || value === 'draft' || value === 'proposed') return 'var(--omv-violet, #6a3df5)'
   if (value === 'reproducing' || value === 'queued' || value === 'pending' || value === 'paused' || value === 'awaiting_evidence' || value === 'partial' || value === 'needs_attention' || value === 'possible_duplicate' || value === 'stale' || value === 'warning' || value === 'info') return 'var(--dsw-alias-state-warn-primary, #b7791f)'
-  if (value === 'blocked' || value === 'failed' || value === 'cancelled' || value === 'duplicate' || value === 'blocker') return 'var(--dsw-alias-state-error-primary, #d44c4c)'
+  if (value === 'blocked' || value === 'failed' || value === 'cancelled' || value === 'duplicate' || value === 'blocker') return 'var(--dsw-alias-state-error-primary, #d6433f)'
   return 'var(--dsw-alias-label-tertiary, #8b8f98)'
 }
 
@@ -187,9 +187,9 @@ export function workflowLabel(intent: WorkflowIntent): string {
 }
 
 export function activityColor(action: string): string {
-  if (action.includes('archive') || action.includes('delete')) return 'var(--dsw-alias-state-error-primary, #d44c4c)'
-  if (action.includes('promote') || action.includes('restore')) return 'var(--dsw-alias-state-success-primary, #329568)'
-  return 'var(--dsw-static-blue-400, #4d6bfe)'
+  if (action.includes('archive') || action.includes('delete')) return 'var(--dsw-alias-state-error-primary, #d6433f)'
+  if (action.includes('promote') || action.includes('restore')) return 'var(--dsw-alias-state-success-primary, #1f9d63)'
+  return 'var(--omv-violet, #6a3df5)'
 }
 
 export function activityLabel(action: string): string {

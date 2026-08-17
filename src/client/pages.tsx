@@ -118,8 +118,15 @@ export function Overview({ data, jobs, onRetryJob, onTab, onFinding, onNew, onOp
         actions={<><button type="button" className="omv-secondary" onClick={() => onTab('campaigns')}><Icon name="campaign" size={13} />查看战役</button><button type="button" className="omv-primary" onClick={onNew}><Icon name="plus" size={13} />新建候选</button></>}
       />
       {data.workspaceIssues.length > 0 && <WorkspaceIssuesNotice issues={data.workspaceIssues} onTab={onTab} onOpenConfigured={onOpenConfigured} />}
-      {data.campaignIssues.length > 0 && <button type="button" className="omv-campaign-notice" onClick={() => onTab('campaigns')}><Icon name="alert" size={13} /><span><strong>{data.campaignIssues.length} 份 Campaign 配置需要处理</strong><small>其余审计数据已正常加载</small></span><Icon name="chevron" size={13} /></button>}
-      <div className="omv-metrics">
+  {data.campaignIssues.length > 0 && <button type="button" className="omv-campaign-notice" onClick={() => onTab('campaigns')}><Icon name="alert" size={13} /><span><strong>{data.campaignIssues.length} 份 Campaign 配置需要处理</strong><small>其余审计数据已正常加载</small></span><Icon name="chevron" size={13} /></button>}
+  <div className="omv-readiness-strip omv-dotgrid">
+  <div className="omv-readiness-ring" style={{ '--pct': metrics.averageReadiness } as CSSProperties}><b>{metrics.averageReadiness}%</b></div>
+  <div className="omv-readiness-copy"><span>态势就绪度</span><strong>{metrics.averageReadiness >= 70 ? '多数发现已具备提交条件' : metrics.averageReadiness >= 40 ? '部分发现仍需补充证据' : '证据链尚在建立阶段'}</strong></div>
+  <Legend color="var(--omv-green)" label="已验证" value={metrics.evidenceMaturity.verified} />
+  <Legend color="var(--omv-teal)" label="证据支撑" value={metrics.evidenceMaturity.supported} />
+  <Legend color="var(--omv-orange)" label="仍在推进" value={metrics.evidenceMaturity.developing} />
+  </div>
+  <div className="omv-metrics">
         <Metric label="活跃发现" value={metrics.active} foot={<><b>{metrics.candidates}</b> 条仍在审计</>} icon="finding" color="var(--omv-blue)" />
         <Metric label="已确认" value={metrics.confirmed} foot={<><b>{metrics.reportReady}</b> 条已满足报告条件</>} icon="check" color="var(--omv-green)" />
         <Metric label="已验证证据" value={metrics.evidenceMaturity.verified} foot={<><b>{metrics.evidenceMaturity.supported}</b> 条已有相互支撑证据</>} icon="gauge" color="var(--omv-teal)" />
@@ -190,7 +197,7 @@ export function Findings({ data, onFinding, onNew, onOpenConfigured }: {
           <tbody>
             {status !== 'archived' && active.map(finding => (
               <tr key={finding.id} tabIndex={0} role="link" aria-label={`打开 ${finding.id}`} onClick={() => onFinding(finding.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onFinding(finding.id) } }}>
-                <td><div className="omv-finding-name"><strong>{finding.id}</strong><span>{finding.package} · {finding.vulnerability}</span></div></td>
+                <td data-stage={finding.stage}><div className="omv-finding-name"><strong>{finding.id}</strong><span>{finding.package} · {finding.vulnerability}</span></div></td>
                 <td><Status value={finding.stage} /></td><td>{finding.ecosystem}</td><td><Maturity assessment={finding.assessment} /></td><td className="omv-cell-mono">{finding.nextAction}</td>
               </tr>
             ))}
@@ -222,7 +229,7 @@ export function Campaigns({ data, busy, onNew, onCampaign, onRepair }: { data: D
       {data.campaigns.length === 0 ? <div className="omv-panel"><Empty label="还没有审计战役" description="把一个目标和漏洞类型组合成可恢复的研究计划。" action={<button type="button" className="omv-primary" onClick={onNew}><Icon name="plus" size={12} />创建战役</button>} /></div> : (
         <div className="omv-campaigns">
           {data.campaigns.map(campaign => (
-            <article className="omv-campaign" key={campaign.id} role="button" tabIndex={0} onClick={() => onCampaign(campaign.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onCampaign(campaign.id) } }}>
+            <article className="omv-campaign" data-status={campaign.status} key={campaign.id} role="button" tabIndex={0} onClick={() => onCampaign(campaign.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onCampaign(campaign.id) } }}>
               <div className="omv-campaign-top"><span className="omv-campaign-icon"><Icon name="campaign" size={16} /></span><Status value={campaign.status} /></div>
               <h3>{campaign.title}</h3><p>{campaign.target} · {campaign.version}</p>
               <div className="omv-campaign-foot"><span>{campaign.laneCount} 条审计 Lane</span><code>{campaign.id}</code></div>
@@ -421,7 +428,7 @@ export function QualityPage({ data, onTab, onFinding, onOpenConfigured }: {
   const quality = data.quality
   const queues = [
     { id: 'evidence', label: '补齐证据', value: quality.queues.needsEvidence, tab: 'findings' as Tab, detail: '论证链仍有缺口的发现' },
-    { id: 'repro', label: '待复现', value: quality.queues.needsReproduction, tab: 'reproduction' as Tab, detail: '需要运行时验证的发现' },
+    { id: 'repro', label: '待复现', value: quality.queues.needsReproduction, tab: 'reproduction' as Tab, detail: '需要运��时验证的发现' },
     { id: 'dedup', label: '待去重', value: quality.queues.needsDedup, tab: 'findings' as Tab, detail: '尚未完成情报比对的发现' },
     { id: 'report', label: '报告就绪', value: quality.queues.reportReady, tab: 'findings' as Tab, detail: '报告材料已接近齐备' },
   ]

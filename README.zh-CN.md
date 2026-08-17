@@ -18,6 +18,7 @@
 - **情境化提交条件**：将数据流、运行时验证、影响范围、结论可信度和报告材料分开判断；候选阶段只提示研究建议，确认后才启用提交条件，且不再把提交分数反向作为证据门槛。
 - **结构化复现 Run**：记录命令、会话、退出码、输出和产物，多次复现结果并存。
 - **复现实验室**：单独的复现队列、运行中/失败/阻塞统计、命令与环境卡片，以及从 Finding 详情重新开始 Run 的入口。
+- **PoC 实验室闭环**：从 Finding 生成可编辑草稿，经过安全校验和人工批准后进入 Docker 隔离环境；执行结果只读取 `/output/result.json`，并保存产物哈希、挂载、资源限制和镜像 provenance，最后由人工明确采纳回写 Evidence。
 - **证据质量中心**：按证据、复现、去重与报告就绪拆分操作队列，用阻塞/提醒/建议信号替代僵硬完成度。
 - **本地去重情报**：比较相邻 Finding，保留相似度、理由、确认/排除结论与下一步；同包不同漏洞类型不再误报疑似重复。
 - **报告材料状态**：报告包与 provenance 状态并入质量中心；草稿与披露由 omv-report / omv-disclose Agent 工作流产出。
@@ -33,7 +34,7 @@
 - **原生会话视图**：在 DSH 会话标题栏与“对话 / 轨迹”并列显示“漏洞审计”，切换时保留同一会话与 Composer。
 - **DSH 工作区绑定**：侧栏入口会注册或复用配置目录对应的 DSH Workspace；任意会话中的 OMV 能力自动绑定该会话的 `cwd`。
 - **会话上下文**：标题栏显示 OMV 状态，Composer 下方同步活跃、确认与阻塞计数。
-- **DSH 模型工具**：22 个原生 Tool，覆盖工作区质量、DSH Fiber 生命周期、Finding、Runner、证据图、去重与复现，并使用 DSH tool card 呈现调用与结果。
+- **DSH 模型工具**：29 个原生 Tool，覆盖工作区质量、DSH Fiber 生命周期、Finding、Runner、证据图、去重、复现与 PoC，并通过 keyed `tool.call.toolview` 使用 OMV 专用 Tool Card 呈现动作、目标、状态、参数和结果；展开后可回到轨迹定位。
 - **原生斜杠命令**：19 个 `/omv*` 命令，覆盖读取、创建、修复、关联、复现、状态、Campaign Runtime、去重与检索；命令生命周期写入会话日志。
 - **稳定协议与导出**：HTTP payload 默认携带 `protocolVersion: "2"`，通过 `?protocol=1` 提供加法兼容；设置页可导出完整工作区快照。
 - **Agent 上下文注入**：通过 DSH `systemPrompt` 告知 Agent 证据优先的 OMV 工作流与工具选择规则。
@@ -72,42 +73,64 @@ flowchart LR
 - DeepSeek Harness `0.1.0-rc.6` 或同一 `0.1.x` API 系列
 - 目标项目中可以没有 `.omv/`；首次读取会初始化所需目录
 
-## 本地开发
+## 安装方式
+
+先区分两个安装动作：`npm install` 只准备这个仓库的依赖和构建产物；`dsh plugin --profile web add ...` 才会把插件加入 DSH Web profile。根据使用场景选择一种模式即可。
+
+### 1. 源码开发（推荐，支持热加载）
+
+适合需要修改 UI 或 Host 代码的场景。`link:.` 会把 DSH profile 指向当前 checkout，`npm run dev` 会持续重建 bundle，DSH Web 的 client-HMR 会自动刷新已打开的页面。
 
 ```bash
+cd /path/to/dsh-omv
 npm install
-npm run check
-```
-
-开发 UI 时使用本地链接和 watcher，DSH Web 会通过 client-hmr 自动重载客户端 bundle：
-
-```bash
 dsh plugin --profile web add link:.
 npm run dev
 dsh --profile web
 ```
 
-`link:.` 必须从本仓库目录执行；不要用 `npm pack` 生成的 tgz 做日常开发安装。`npm run dev` 会监听 `src/` 并重建 `lib/client.js`，修改后已打开的 DSH 页面会自动刷新插件 UI；React 组件状态会按 DSH HMR 规则重置。
-
-## 安装到 DSH
-
-在本仓库目录运行：
+保持 `npm run dev` 运行，再编辑 `src/`。React 组件状态会按 DSH HMR 规则重置；它不是完整页面状态持久化。若之前安装过稳定模式，先切换到链接模式：
 
 ```bash
+dsh plugin --profile web remove dsh-omv
+dsh plugin --profile web add link:.
+```
+
+### 2. 本地稳定安装
+
+适合只验证当前版本、不需要热加载的场景。它把当前目录作为普通本地依赖安装；修改源码后需要重新构建并重新执行 `add .`。
+
+```bash
+cd /path/to/dsh-omv
+npm install
+npm run build
 dsh plugin --profile web add .
 dsh --profile web
 ```
 
-打开 DSH Web UI 后，侧栏底部会出现“漏洞审计”入口。点击后进入对应 DSH Workspace；打开任意会话即可在顶部切换到“漏洞审计”视图。
+### 3. 打包安装
 
-在“审计任务”详情点击 **Seed 并运行 Campaign** 后，Runner 会按并发宽度 fork 当前 DSH 会话。每条 Lane 在独立会话中运行，并通过 `omv_campaign_lane_update` 回写结果；重新打开 DSH 后，已绑定会话和未完成队列会继续恢复。
-
-也可以打包后安装：
+适合交付给其他机器或模拟发布包安装。`npm pack` 输出的文件名包含当前版本号，把命令输出的实际文件名替换到下一条命令中；`.tgz` 安装不会提供源码热加载。
 
 ```bash
-npm pack
-dsh plugin --profile web add ./dsh-omv-1.0.7.tgz
+cd /path/to/dsh-omv
+npm install
+npm pack --silent
+dsh plugin --profile web add ./dsh-omv-<version>.tgz
+dsh --profile web
 ```
+
+本地 checkout 和已经构建的 `.tgz` 不需要额外配置 pnpm `allowBuilds`。升级已安装插件可用 `dsh plugin --profile web update dsh-omv`；卸载可用 `dsh plugin --profile web remove dsh-omv`。
+
+打开 DSH Web UI 后，侧栏底部会出现“漏洞审计”入口。点击后进入对应 DSH Workspace；打开任意会话即可在顶部切换到“漏洞审计”视图。安装后可用下面的命令检查 profile 是否已经识别组合包：
+
+```bash
+dsh --profile web --dump-config
+```
+
+输出中应能看到 `dsh-omv` 的配置层；如果只修改了源码而页面没有变化，确认当前使用的是 `link:.`，并确认 `npm run dev` 仍在运行。
+
+在“审计任务”详情点击 **Seed 并运行 Campaign** 后，Runner 会按并发宽度 fork 当前 DSH 会话。每条 Lane 在独立会话中运行，并通过 `omv_campaign_lane_update` 回写结果；重新打开 DSH 后，已绑定会话和未完成队列会继续恢复。
 
 ## 指向 OMV 工作区
 
@@ -144,6 +167,14 @@ dsh plugin --profile web add ./dsh-omv-1.0.7.tgz
 | `watchDebounceMs` | `90` | `.omv` 文件变更合并窗口，范围 0–10000 |
 | `eventHeartbeatMs` | `20000` | SSE 心跳间隔，范围 1–300000 |
 | `httpBodyLimitBytes` | `262144` | `/action` JSON 请求体上限，范围 4096–16777216 |
+| `pocEnabled` | `true` | 是否启用 PoC 草稿、隔离运行和证据采纳 |
+| `pocAllowNetwork` | `false` | 是否允许 PoC 容器使用 bridge 网络；默认完全断网 |
+| `pocDockerImages` | `['python:3.12-slim']` | Docker 镜像白名单；生产环境建议使用 digest 固定的镜像引用 |
+| `pocTimeoutMs` | `30000` | 单次 PoC 最大执行时间 |
+| `pocMemoryMb` / `pocCpuLimit` / `pocPidLimit` | `256` / `1` / `128` | 容器资源限制 |
+| `pocMaxScriptBytes` / `pocMaxOutputBytes` | `131072` / `65536` | 脚本和 `/output` 产物上限 |
+
+PoC 运行前会从本地 Docker 镜像的 `RepoDigests` 固定实际 digest，并以 `--pull=never` 执行；因此首次使用白名单镜像时需要先显式拉取或导入镜像。若配置本身使用 `image@sha256:...`，系统会直接沿用该 digest。
 
 ## 安全模型
 
@@ -176,12 +207,16 @@ export function apply(ctx: Context) {
 | `GET` | `/api/dsh-omv/campaign-run?id=<id>` | Campaign Run 与 Lane/Session 状态 |
 | `GET` | `/api/dsh-omv/quality` | 证据质量信号、阻塞项和操作队列 |
 | `GET` | `/api/dsh-omv/reproductions` | 工作区结构化复现 Run |
+| `GET` | `/api/dsh-omv/poc?findingId=<id>` | 单条 Finding 的 PoC 草稿和隔离运行 |
+| `GET` | `/api/dsh-omv/poc-run?id=<id>` | 单次 PoC Run、结果、产物哈希和 provenance |
 | `GET` | `/api/dsh-omv/dedup?id=<id>` | 单条 Finding 去重摘要与匹配 |
 | `GET` | `/api/dsh-omv/search?q=<query>` | 工作区全局搜索 |
 | `GET` | `/api/dsh-omv/events` | `.omv` 实时 SSE 变更流 |
 | `GET` | `/api/dsh-omv/protocol` | 当前协议和兼容版本 |
 | `GET` | `/api/dsh-omv/export` | 协议 v2 完整工作区快照 |
 | `POST` | `/api/dsh-omv/action` | 类型化工作区动作 |
+
+PoC 动作顺序固定为：`poc.generate` → `poc.draft.save` → `poc.draft.approve` → `poc.run.start` → `poc.run.inspect` → `poc.evidence.adopt`。执行通过不等于漏洞确认，`poc.evidence.adopt` 是唯一的人工采纳边界。
 
 API 响应统一为 `{ ok: true, data }` 或 `{ ok: false, error }`，并设置 `Cache-Control: no-store`。
 

@@ -28,6 +28,7 @@ An evidence-first vulnerability audit workbench for [DeepSeek Harness](https://d
 - Doctor issues, review verdicts, open questions, and exact next actions without circular score deductions
 - Durable Campaign Runner with bounded concurrency, one native DSH forked session per lane, pause/resume/cancel/retry, and restart recovery
 - Provenance-aware Evidence Graph, stage-aware report conditions, and structured reproduction runs
+- Closed-loop PoC laboratory: editable drafts, explicit approval, Docker isolation, `/output/result.json`, artifact hashes, provenance, and manual Evidence adoption
 - Dedicated quality center, reproduction lab, dedup intelligence, report-readiness signals, and Campaign Graph
 - DSH-native visual system that uses the host background layers, borders, typography, and alias colors directly, with calm hierarchy, sticky workbench chrome, and responsive mobile breakpoints
 - Campaign outcomes distinguish completed work from blocked lanes that still need attention
@@ -36,10 +37,10 @@ An evidence-first vulnerability audit workbench for [DeepSeek Harness](https://d
 - SSE workspace synchronization with polling fallback
 - Recent workspace activity surfaced on the overview page
 - Candidate creation, validation, reproduction scaffolding, promotion, and restore actions
-- 22 model tools covering workspace quality, DSH lifecycle diagnostics, Finding, workflow, Campaign Runtime, evidence provenance, reproduction, dedup, and search
+- 29 model tools covering workspace quality, DSH lifecycle diagnostics, Finding, workflow, Campaign Runtime, evidence provenance, reproduction, PoC isolation, dedup, and search
 - 19 durable `/omv*` commands, including `omv-dedup` and the Campaign Runtime set
 - Automatic binding to the current DSH session workspace
-- Native tool presentation and an evidence-first Agent system-prompt section
+- Native tool presentation, including an OMV-keyed `tool.call.toolview` card with expandable arguments/results and trajectory inspection, plus an evidence-first Agent system-prompt section
 - Central cooperative cancellation guards on every native OMV tool invocation
 - Native `omv` Cordis service for other plugins, lifecycle diagnostics via `omv_runtime_status`, and typed `dsh-omv/tool-result` events
 - User preference persistence: uses the native `dsh-omv` settings namespace when the Host exposes it, with a browser-local fallback on DSH rc.6; deployment knobs remain in Cordis Config
@@ -47,24 +48,60 @@ An evidence-first vulnerability audit workbench for [DeepSeek Harness](https://d
 
 ## Install
 
+There are two separate installation steps: `npm install` prepares this checkout's dependencies and build output; `dsh plugin --profile web add ...` installs the plugin into the DSH Web profile. Choose one of the following modes.
+
+### Source development (recommended for UI work)
+
+Use a local link when you need hot reload. The link points the profile at this checkout, while `npm run dev` watches `src/` and lets DSH client-HMR refresh the open page.
+
 ```bash
+cd /path/to/dsh-omv
 npm install
-npm run check
-dsh plugin --profile web add .
-dsh --profile web
-```
-
-For UI development, use a local link plus the bundle watcher so the Web profile's client-HMR chain can reload changes without a manual page refresh:
-
-```bash
 dsh plugin --profile web add link:.
 npm run dev
 dsh --profile web
 ```
 
-Run `link:.` from this repository. The watcher rebuilds `lib/client.js` from `src/`; installing a packed `.tgz` is intended for distribution, not hot-reload development.
+Keep `npm run dev` running while editing. React component state may reset according to DSH HMR behavior; this is not full page-state persistence. If the profile previously used a regular local install, switch it explicitly:
 
-The **Vulnerability audit** entry opens or reuses the configured DSH Workspace. Every session then exposes a **Vulnerability audit** tab beside Chat and Trajectory.
+```bash
+dsh plugin --profile web remove dsh-omv
+dsh plugin --profile web add link:.
+```
+
+### Stable local install
+
+Use this mode when you want to run a fixed checkout without hot reload. After source changes, rebuild and add the local package again.
+
+```bash
+cd /path/to/dsh-omv
+npm install
+npm run build
+dsh plugin --profile web add .
+dsh --profile web
+```
+
+### Packed install
+
+Use a tarball to transfer or install a specific build on another machine. `npm pack` prints a versioned filename; use the actual filename it prints. A tarball does not provide source hot reload.
+
+```bash
+cd /path/to/dsh-omv
+npm install
+npm pack --silent
+dsh plugin --profile web add ./dsh-omv-<version>.tgz
+dsh --profile web
+```
+
+Local checkouts and already-built tarballs do not need an extra pnpm `allowBuilds` entry. Update an installed package with `dsh plugin --profile web update dsh-omv`, or remove it with `dsh plugin --profile web remove dsh-omv`.
+
+The **Vulnerability audit** entry opens or reuses the configured DSH Workspace. Every session then exposes a **Vulnerability audit** tab beside Chat and Trajectory. Verify the profile after installation with:
+
+```bash
+dsh --profile web --dump-config
+```
+
+The output should include the `dsh-omv` configuration layer. If source changes do not appear, confirm that the profile uses `link:.` and that `npm run dev` is still running.
 
 ## Configure
 

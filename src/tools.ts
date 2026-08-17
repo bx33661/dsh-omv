@@ -415,6 +415,74 @@ export function registerOmvTools(ctx: Context, workbench: OmvWorkbench, runtimeS
     presentResult: (args, result) => ({ card: 'generic', title: `复现 Run 已完成 · ${args.runId}`, content: result.content }),
   }))
 
+  register(defineTool({
+    name: 'omv_poc_generate',
+    description: 'Create a reviewable PoC draft from one Finding and its Evidence.v1 source/sink/guard context. The generated scaffold is never executable until explicitly approved.',
+    parameters: { id: { type: 'string', required: true, description: 'Finding id.' } },
+    output: stringOutput(),
+    async execute(args, exec) { return pretty(await scoped(workbench, exec.agent?.session.header.cwd).action({ action: 'poc.generate', id: args.id }, { signal: exec.signal })) },
+    presentCall: args => ({ card: 'generic', title: `生成 PoC 草稿 · ${args.id}`, kind: 'edit', rawInput: args, locations: [findingLocation(args.id), { path: '.omv/.dsh/poc-drafts.json' }] }),
+    presentResult: (args, result) => ({ card: 'generic', title: `PoC 草稿已创建 · ${args.id}`, content: result.content }),
+  }))
+
+  register(defineTool({
+    name: 'omv_poc_draft_save',
+    description: 'Save edited PoC source into a draft and re-run the safety validation. Saving a draft does not approve or execute it.',
+    parameters: {
+      findingId: { type: 'string', required: true, description: 'Finding id.' },
+      draftId: { type: 'string', description: 'Existing draft id; omit to create a new draft.' },
+      script: { type: 'string', required: true, description: 'PoC script. It must write JSON to /output/result.json.' },
+      language: { type: 'string', description: 'python, bash, or curl.' },
+      image: { type: 'string', description: 'Allowlisted Docker image.' },
+      requiresNetwork: { type: 'boolean', description: 'Whether the isolated container needs network access.' },
+    },
+    output: stringOutput(),
+    async execute(args, exec) { return pretty(await scoped(workbench, exec.agent?.session.header.cwd).action({ action: 'poc.draft.save', id: args.findingId, ...(args.draftId === undefined ? {} : { draftId: args.draftId }), script: args.script, ...(args.language === undefined ? {} : { language: pocLanguage(args.language) }), ...(args.image === undefined ? {} : { image: args.image }), ...(args.requiresNetwork === undefined ? {} : { requiresNetwork: args.requiresNetwork }) }, { signal: exec.signal })) },
+    presentCall: args => ({ card: 'generic', title: `保存 PoC 草稿 · ${args.findingId}`, kind: 'edit', rawInput: args, locations: [{ path: '.omv/.dsh/poc-drafts.json' }] }),
+    presentResult: (args, result) => ({ card: 'generic', title: `PoC 草稿已保存 · ${args.findingId}`, content: result.content }),
+  }))
+
+  register(defineTool({
+    name: 'omv_poc_draft_approve',
+    description: 'Explicitly approve a validated PoC draft. Approval is required before any container execution.',
+    parameters: { draftId: { type: 'string', required: true, description: 'PoC draft id.' }, approvedBy: { type: 'string', description: 'Reviewer identity or session label.' } },
+    output: stringOutput(),
+    async execute(args, exec) { return pretty(await scoped(workbench, exec.agent?.session.header.cwd).action({ action: 'poc.draft.approve', draftId: args.draftId, ...(args.approvedBy === undefined ? {} : { approvedBy: args.approvedBy }) }, { signal: exec.signal })) },
+    presentCall: args => ({ card: 'generic', title: `批准 PoC 草稿 · ${args.draftId}`, kind: 'edit', rawInput: args, locations: [{ path: '.omv/.dsh/poc-drafts.json' }] }),
+    presentResult: (args, result) => ({ card: 'generic', title: `PoC 草稿已批准 · ${args.draftId}`, content: result.content }),
+  }))
+
+  register(defineTool({
+    name: 'omv_poc_run',
+    description: 'Run an approved PoC in the Docker isolation profile and persist result.json, artifact hashes, mounts, limits, and execution provenance. A passed run is not automatically evidence.',
+    parameters: { draftId: { type: 'string', required: true, description: 'Approved PoC draft id.' }, sourceDir: { type: 'string', description: 'Optional project-relative source directory to mount read-only as /source.' } },
+    output: stringOutput(),
+    async execute(args, exec) { return pretty(await scoped(workbench, exec.agent?.session.header.cwd).action({ action: 'poc.run.start', draftId: args.draftId, ...(args.sourceDir === undefined ? {} : { sourceDir: args.sourceDir }) }, { signal: exec.signal })) },
+    presentCall: args => ({ card: 'generic', title: `执行隔离 PoC · ${args.draftId}`, kind: 'execute', rawInput: args, locations: [{ path: '.omv/.dsh/poc-runs' }] }),
+    presentResult: (args, result) => ({ card: 'generic', title: `PoC Run 已完成 · ${args.draftId}`, content: result.content }),
+  }))
+
+  register(defineTool({
+    name: 'omv_poc_run_inspect',
+    description: 'Inspect one persisted PoC run, including structured result, artifact hashes, safety profile, and provenance.',
+    parameters: { runId: { type: 'string', required: true, description: 'PoC run id.' } },
+    output: stringOutput(),
+    async execute(args, exec) { return pretty(await scoped(workbench, exec.agent?.session.header.cwd).action({ action: 'poc.run.inspect', runId: args.runId })) },
+    presentCall: args => ({ card: 'generic', title: `读取 PoC Run · ${args.runId}`, kind: 'read', rawInput: args, locations: [{ path: '.omv/.dsh/poc-runs.json' }] }),
+    presentResult: (args, result) => ({ card: 'generic', title: `PoC Run · ${args.runId}`, content: result.content }),
+    isConcurrencySafe: () => true,
+  }))
+
+  register(defineTool({
+    name: 'omv_poc_evidence_adopt',
+    description: 'Manually adopt a passed PoC run into Evidence.v1. This is the explicit human boundary; execution alone never changes the finding conclusion.',
+    parameters: { runId: { type: 'string', required: true, description: 'Passed PoC run id.' } },
+    output: stringOutput(),
+    async execute(args, exec) { return pretty(await scoped(workbench, exec.agent?.session.header.cwd).action({ action: 'poc.evidence.adopt', runId: args.runId }, { signal: exec.signal })) },
+    presentCall: args => ({ card: 'generic', title: `采纳 PoC 证据 · ${args.runId}`, kind: 'edit', rawInput: args, locations: [{ path: '.omv/findings' }] }),
+    presentResult: (args, result) => ({ card: 'generic', title: `PoC 证据已采纳 · ${args.runId}`, content: result.content }),
+  }))
+
 }
 
 function scoped(workbench: OmvWorkbench, cwd: string | undefined): OmvWorkbench {
@@ -430,6 +498,11 @@ function stringOutput() {
 
 function pretty(value: unknown): string {
   return JSON.stringify(value, null, 2)
+}
+
+function pocLanguage(value: string): 'python' | 'bash' | 'curl' {
+  if (value === 'python' || value === 'bash' || value === 'curl') return value
+  throw new Error('language must be python, bash, or curl')
 }
 
 /** Central cancellation guard for every OMV tool body. */

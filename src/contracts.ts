@@ -127,6 +127,9 @@ export interface DashboardPayload {
   quality: WorkspaceQualityPayload
   /** Reproduction runs across the current workspace. */
   reproductionRuns: ReproductionRun[]
+  /** PoC drafts and isolated runs across the current workspace. */
+  pocDrafts: PocDraft[]
+  pocRuns: PocRun[]
 }
 
 export interface WorkspaceIssue {
@@ -246,6 +249,8 @@ export interface FindingPayload {
   assessment: EvidenceAssessment
   qualityGate: QualityGateResult
   reproductionRuns: ReproductionRun[]
+  pocDrafts: PocDraft[]
+  pocRuns: PocRun[]
   dedup: DedupSummary
 }
 
@@ -542,6 +547,10 @@ export type MutationAction =
   | 'dedup.update'
   | 'poc.generate'
   | 'poc.validate'
+  | 'poc.draft.save'
+  | 'poc.draft.approve'
+  | 'poc.run.start'
+  | 'poc.evidence.adopt'
 
 export type ReadAction =
   | 'finding.validate'
@@ -586,9 +595,33 @@ export interface PocDraft {
   commandArgs: string[]
   image: string
   requiresNetwork: boolean
+  generationPrompt?: string
+  resultProtocol?: string
   validation: PocValidation
+  status: 'draft' | 'approved' | 'rejected' | 'stale'
+  scriptSha256?: string
+  imageDigest?: string
+  approvedAt?: string
+  approvedBy?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface PocArtifact {
+  path: string
+  sha256: string
+  size: number
+}
+
+export interface PocProvenance {
+  image: string
+  imageDigest?: string
+  command: string[]
+  mounts: Array<{ source: string; target: string; readOnly: boolean }>
+  scriptSha256: string
+  resultSha256?: string
+  startedAt: string
+  finishedAt?: string
 }
 
 export interface PocRun {
@@ -601,7 +634,10 @@ export interface PocRun {
   stdout?: string
   stderr?: string
   artifacts: string[]
+  artifactRecords?: PocArtifact[]
   observedResult?: string
+  result?: Record<string, unknown>
+  provenance?: PocProvenance
   safetyProfile: {
     network: 'none' | 'bridge'
     readOnly: boolean
@@ -659,4 +695,6 @@ export interface ActionRequest {
   templateId?: string
   image?: string
   requiresNetwork?: boolean
+  approvedBy?: string
+  sourceDir?: string
 }

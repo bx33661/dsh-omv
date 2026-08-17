@@ -1,4 +1,26 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { ComponentType, CSSProperties, ReactNode } from 'react'
+import {
+  Modal as NativeModal,
+  StateDot,
+  type IconProps,
+  type StateDotState,
+} from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  IconArchiveOutline20,
+  IconBrowseOutline16,
+  IconCheckOutline16,
+  IconChevronRightOutline14,
+  IconCloseOutline16,
+  IconCodeOutline16,
+  IconFolderOpen16,
+  IconFullscreenOutline16,
+  IconGoalOutline16,
+  IconLoadingOutline16,
+  IconPlusOutline16,
+  IconRefreshOutline16,
+  IconSearchOutline16,
+  IconWarningOutline16,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   siDart,
   siDotnet,
@@ -43,7 +65,7 @@ export function Maturity({ assessment, compact = false }: { assessment: Evidence
 
 export function Status({ value }: { value: string }) {
   const color = statusColor(value)
-  return <span className="omv-status" style={{ '--status': color } as CSSProperties} aria-label={`状态：${statusLabel(value)}`}><Icon name={statusIcon(value)} size={11} />{statusLabel(value)}</span>
+  return <span className="omv-status" style={{ '--status': color } as CSSProperties} aria-label={`状态：${statusLabel(value)}`}><StateDot state={statusDotState(value)} />{statusLabel(value)}</span>
 }
 
 export function EvidenceStatusLogo({ maturity }: { maturity: EvidenceAssessment['maturity'] }) {
@@ -100,15 +122,11 @@ export function PriorityIssueLogo({ severity }: { severity: string }) {
   return <span className="omv-priority-issue-logo" data-severity={kind} role="img" aria-label={label} title={label}>{mark}</span>
 }
 
-function statusIcon(value: string): IconName {
-  if (['confirmed', 'report_ready', 'passed', 'completed', 'verified', 'supported', 'selected', 'clear'].includes(value)) return 'check'
-  if (['blocked', 'failed', 'error', 'missing', 'needs_attention', 'warning', 'contested'].includes(value)) return 'alert'
-  if (['archived', 'disclosed'].includes(value)) return 'archive'
-  if (['cancelled', 'skipped'].includes(value)) return 'close'
-  if (value === 'finding') return 'finding'
-  if (value === 'campaign') return 'campaign'
-  if (['candidate', 'investigating', 'reproducing', 'running', 'queued', 'pending', 'awaiting_evidence', 'partial', 'open'].includes(value)) return 'pulse'
-  return 'activity'
+function statusDotState(value: string): StateDotState {
+  if (['confirmed', 'report_ready', 'passed', 'completed', 'verified', 'supported', 'selected', 'clear', 'approved'].includes(value)) return 'done'
+  if (['blocked', 'failed', 'error', 'missing', 'contested', 'rejected'].includes(value)) return 'error'
+  if (['candidate', 'investigating', 'reproducing', 'running', 'queued', 'pending', 'awaiting_evidence', 'partial', 'open', 'needs_review'].includes(value)) return 'ongoing'
+  return 'warning'
 }
 
 export function EcosystemAvatar({ ecosystem, size = 'md' }: { ecosystem: string; size?: 'md' | 'lg' }) {
@@ -166,10 +184,6 @@ function LegacyEcosystemLogo({ ecosystem, fallback }: { ecosystem: string; fallb
   }
 }
 
-export function EcoChip({ ecosystem }: { ecosystem: string }) {
-  return <span className="omv-eco-chip">{ecosystem}</span>
-}
-
 export function Section({ title, meta, children }: { title: string; meta: string; children: ReactNode }) {
   return <section className="omv-section"><div className="omv-section-title"><h3>{title}</h3><span>{meta}</span></div>{children}</section>
 }
@@ -191,8 +205,7 @@ export function ChainCard({ label, value, onOpen }: { label: string; value: unkn
 }
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  const titleId = `omv-modal-${title.replace(/[^\p{L}\p{N}]+/gu, '-').toLowerCase()}`
-  return <div className="omv-modal-backdrop" role="presentation" onMouseDown={onClose}><div className="omv-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={event => event.stopPropagation()}><div className="omv-modal-head"><h2 id={titleId}>{title}</h2><button type="button" className="omv-icon-button" aria-label="关闭" onClick={onClose}><Icon name="close" size={15} /></button></div>{children}</div></div>
+  return <NativeModal open onClose={onClose} title={title} closeLabel="关闭">{children}</NativeModal>
 }
 
 export function Field({ label, full = false, children }: { label: string; full?: boolean; children: ReactNode }) {
@@ -204,11 +217,29 @@ export function Empty({ label, description, action, compact = false }: { label: 
 }
 
 export function Loading({ label = '同步 OMV 工作区…' }: { label?: string }) {
-  return <div className="omv-loading" role="status" aria-live="polite"><div><div className="omv-spinner" />{label}</div></div>
+  return <div className="omv-loading" role="status" aria-live="polite"><div><IconLoadingOutline16 size={20} />{label}</div></div>
 }
 
 
+const NATIVE_ICONS: Partial<Record<IconName, ComponentType<IconProps>>> = {
+  refresh: IconRefreshOutline16,
+  close: IconCloseOutline16,
+  plus: IconPlusOutline16,
+  check: IconCheckOutline16,
+  alert: IconWarningOutline16,
+  chevron: IconChevronRightOutline14,
+  search: IconSearchOutline16,
+  terminal: IconCodeOutline16,
+  campaign: IconGoalOutline16,
+  folder: IconFolderOpen16,
+  maximize: IconFullscreenOutline16,
+  archive: IconArchiveOutline20,
+  eye: IconBrowseOutline16,
+}
+
 export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
+  const NativeIcon = NATIVE_ICONS[name]
+  if (NativeIcon !== undefined) return <NativeIcon size={size} />
   const paths: Record<IconName, ReactNode> = {
     shield: <><path d="M12 3 5 6v5c0 4.5 2.7 7.7 7 9 4.3-1.3 7-4.5 7-9V6l-7-3Z" /><path d="m9.4 11.7 1.7 1.7 3.8-4" /></>,
     grid: <><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></>,

@@ -109,7 +109,7 @@ export function checkStateIcon(value: EvidenceCheckState): IconName {
 export function statusColor(value: string): string {
   if (value === 'confirmed' || value === 'report_ready' || value === 'disclosed' || value === 'active' || value === 'completed' || value === 'passed' || value === 'verified' || value === 'supported' || value === 'clear' || value === 'ready' || value === 'selected') return 'var(--dsw-alias-state-success-primary, #1f9d63)'
   if (value === 'candidate' || value === 'investigating' || value === 'running' || value === 'stopping' || value === 'dispatching' || value === 'reviewing' || value === 'draft' || value === 'proposed') return 'var(--dsw-alias-state-business-primary, #4d6bfe)'
-  if (value === 'reproducing' || value === 'queued' || value === 'pending' || value === 'paused' || value === 'awaiting_evidence' || value === 'partial' || value === 'needs_attention' || value === 'possible_duplicate' || value === 'stale' || value === 'warning' || value === 'info') return 'var(--dsw-alias-state-warn-primary, #b7791f)'
+  if (value === 'reproducing' || value === 'queued' || value === 'pending' || value === 'paused' || value === 'awaiting_evidence' || value === 'partial' || value === 'needs_attention' || value === 'possible_duplicate' || value === 'needs_review' || value === 'stale' || value === 'warning' || value === 'info') return 'var(--dsw-alias-state-warn-primary, #b7791f)'
   if (value === 'blocked' || value === 'failed' || value === 'cancelled' || value === 'duplicate' || value === 'blocker') return 'var(--dsw-alias-state-error-primary, #d6433f)'
   return 'var(--dsw-alias-label-tertiary, #8b8f98)'
 }
@@ -138,7 +138,7 @@ const STATUS_LABELS: Record<string, string> = {
   failed: '失败', awaiting_evidence: '待证据',
   passed: '通过',
   finding: '发现', campaign: '审计任务', activity: '活动',
-  ready: '就绪', missing: '缺失', draft: '草稿', stale: '需刷新', partial: '部分支撑', supported: '已有支撑', verified: '已经验证', not_applicable: '暂不适用',
+  ready: '就绪', missing: '缺失', draft: '草稿', approved: '已批准', rejected: '已拒绝', needs_review: '待人工复核', stale: '需刷新', partial: '部分支撑', supported: '已有支撑', verified: '已经验证', not_applicable: '暂不适用',
   unknown: '未知', clear: '已排除', possible_duplicate: '疑似重复', duplicate: '重复',
   blocker: '阻塞', warning: '提醒', info: '建议',
   proposed: '待选用', selected: '已选用', skipped: '已跳过',

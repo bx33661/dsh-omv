@@ -3,6 +3,7 @@ import type { CommandRowProps, ConvViewProps } from '@deepseek-ai/dsh-client-ui-
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-tool/client'
+import { Button as DshButton, Toast as NativeToast } from '@deepseek-ai/dsh-client-ui-primitives'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   ActionRequest,
@@ -22,6 +23,7 @@ import {
   type OmvSettings,
 } from '../settings.js'
 import { ensureWorkbenchStyles } from './styles.js'
+import { registerOmvToolViews } from './omv-toolview.js'
 import { OMV_COMMANDS, OMV_DISPLAY_NAME } from './types.js'
 import type { Dialog, IconName, LauncherInjected, SettingsInjected, Tab, WorkspaceSurfaceInjected } from './types.js'
 import { resolveCodeRef } from '../code-ref.js'
@@ -38,6 +40,7 @@ export const inject = ['slots', 'sessions', 'workspaces', 'settingsScope']
 
 export function apply(ctx: ClientContext): void {
   ensureWorkbenchStyles()
+  registerOmvToolViews(ctx)
   const root = configuredRoot()
   const sessions = ctx.get('sessions') as unknown as ISessions
   const workspaces = ctx.get('workspaces') as unknown as IWorkspaces
@@ -297,9 +300,9 @@ function AuditSettingsSection({ close, projectRoot, openWorkbench, openPath, set
         </select></div>
       </section>
       <div className="omv-settings-actions">
-        <button type="button" className="omv-secondary" onClick={() => { void openPath(`${projectRoot}/.omv`) }}>打开 .omv</button>
-        <button type="button" className="omv-secondary" disabled={busy} onClick={() => { void exportSnapshot() }}>导出快照</button>
-        <button type="button" className="omv-primary" disabled={busy} onClick={() => { void launch() }}>进入审计工作区</button>
+        <DshButton type="button" variant="outline" onClick={() => { void openPath(`${projectRoot}/.omv`) }}>打开 .omv</DshButton>
+        <DshButton type="button" variant="outline" disabled={busy} onClick={() => { void exportSnapshot() }}>导出快照</DshButton>
+        <DshButton type="button" variant="primary" disabled={busy} onClick={() => { void launch() }}>进入审计工作区</DshButton>
       </div>
       <p className="omv-settings-help">在任意 DSH 工作区中使用“OMV 审计台”会话视图；Agent 工具和 /omv 系列命令会自动绑定当前会话目录。</p>
     </div>
@@ -384,12 +387,6 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
     setCampaignDetailExpanded(false)
     restoreOverlayFocus()
   }, [restoreOverlayFocus])
-
-  useEffect(() => {
-    if (toast === undefined) return
-    const id = window.setTimeout(() => setToast(undefined), 3200)
-    return () => window.clearTimeout(id)
-  }, [toast])
 
   const showFinding = useCallback(async (id: string, archived = false) => {
     // Stale-while-revalidate: keep the visible panel until fresh data lands.
@@ -663,7 +660,14 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
       {dialog === 'finding' && <NewFindingDialog busy={anyBusy} onClose={closeDialog} onSubmit={async request => { if (await perform(request, '候选漏洞已创建')) closeDialog() }} />}
       {dialog === 'campaign' && <NewCampaignDialog busy={anyBusy} onClose={closeDialog} onSubmit={async request => { if (await perform(request, '审计任务已创建')) closeDialog() }} />}
       {commandPaletteOpen && <CommandPalette tab={tab} onTab={next => { selectTab(next); closeCommandPalette() }} onNewFinding={() => { setDialog('finding'); setCommandPaletteOpen(false) }} onNewCampaign={() => { setDialog('campaign'); setCommandPaletteOpen(false) }} onClose={closeCommandPalette} />}
-      {toast !== undefined && <div className="omv-toast" role={toast.kind === 'error' ? 'alert' : 'status'} data-kind={toast.kind === 'error' ? 'error' : undefined}><span>{toast.message}</span><button type="button" aria-label="关闭提示" onClick={() => setToast(undefined)}><Icon name="close" size={12} /></button></div>}
+      {toast !== undefined && (
+        <NativeToast
+          key={`${toast.kind}:${toast.message}`}
+          text={toast.message}
+          icon={<Icon name={toast.kind === 'error' ? 'alert' : 'check'} size={14} />}
+          onDone={() => setToast(undefined)}
+        />
+      )}
     </div>
   )
 }

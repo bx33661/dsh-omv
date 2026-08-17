@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { Button as DshButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import { layoutWarRoom, truncateForCanvas, WAR_ROOM_NODE, warRoomEdgePath } from './graph-layout.js'
 import { useCanvasViewport } from './hooks.js'
 import { statusColor, statusLabel } from './runtime.js'
@@ -55,9 +56,9 @@ export function CampaignWarRoom({ target, ecosystem, lanes, onControl, onOpenSes
           <span><i style={{ background: 'var(--omv-faint)' }} />未启动</span>
         </div>
         <div className="omv-flow-zoom">
-          <button type="button" aria-label="缩小" onClick={() => canvas.zoomBy(1 / 1.25)}>−</button>
-          <button type="button" aria-label="放大" onClick={() => canvas.zoomBy(1.25)}>＋</button>
-          <button type="button" onClick={canvas.fit}>适配</button>
+          <DshButton variant="toolbar" size="sm" className="omv-flow-control" aria-label="缩小" onClick={() => canvas.zoomBy(1 / 1.25)}>−</DshButton>
+          <DshButton variant="toolbar" size="sm" className="omv-flow-control" aria-label="放大" onClick={() => canvas.zoomBy(1.25)}>＋</DshButton>
+          <DshButton variant="toolbar" size="sm" className="omv-flow-control omv-flow-fit" onClick={canvas.fit}>适配</DshButton>
         </div>
       </div>
       <div
@@ -142,13 +143,13 @@ export function CampaignWarRoom({ target, ecosystem, lanes, onControl, onOpenSes
           </div>
           <div className="omv-war-inspector-actions">
             {selectedLane.findingId !== undefined && onFinding !== undefined && (
-              <button type="button" className="omv-secondary" onClick={() => onFinding(selectedLane.findingId!)}><Icon name="finding" size={11} />Finding</button>
+              <DshButton variant="outline" size="sm" onClick={() => onFinding(selectedLane.findingId!)} icon={<Icon name="finding" size={11} />}>Finding</DshButton>
             )}
             {selectedLane.sessionId !== undefined && onOpenSession !== undefined && (
-              <button type="button" className="omv-secondary" onClick={() => onOpenSession(selectedLane.sessionId!)}><Icon name="terminal" size={11} />会话</button>
+              <DshButton variant="outline" size="sm" onClick={() => onOpenSession(selectedLane.sessionId!)} icon={<Icon name="terminal" size={11} />}>会话</DshButton>
             )}
             {retryable && onControl !== undefined && (
-              <button type="button" className="omv-secondary" onClick={() => onControl(selectedLane.id, 'retry', selectedLane.id)}><Icon name="refresh" size={11} />重试此 Lane</button>
+              <DshButton variant="outline" size="sm" onClick={() => onControl(selectedLane.id, 'retry', selectedLane.id)} icon={<Icon name="refresh" size={11} />}>重试此 Lane</DshButton>
             )}
           </div>
         </div>

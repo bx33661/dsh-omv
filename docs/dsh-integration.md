@@ -13,8 +13,9 @@
 | Schemastery 配置与严格边界 | `activityLimit`、轮询、并发、watch debounce、SSE heartbeat、HTTP body 上限均是可覆盖字段；schema 直接拒绝越界值 | `src/config.test.ts` |
 | Service 形态 | `OmvService` 以 `ctx.omv` 提供 workspace-scoped workbench；其他插件可 `inject: ['omv']` | `src/service.test.ts` |
 | Fiber 生命周期诊断 | `inspectDshRuntime`、`omv_runtime_status`、`/omv-runtime` 展示 PENDING/FAILED、依赖与 fiber | `src/runtime.test.ts` |
-| Tool canonical output | 所有 Tool 声明 `output.schema` + `render`，并统一做 AbortSignal 分发前后检查 | 28 个原生 Tool 注册、`npm run check` |
-| Tool UI presentation | 原生 generic card + `kind` + Finding/Campaign/Runner 文件 `locations`，可被 DSH UI follow-along | `src/tools.ts` presenters |
+| Tool canonical output | 所有 Tool 声明 `output.schema` + `render`，并统一做 AbortSignal 分发前后检查 | 29 个原生 Tool 注册、`npm run check` |
+| OMV Tool Card | 通过 keyed `tool.call.toolview` 接管 29 个 OMV Tool 的对话行，复用冻结的 call/result block 展示动作、目标、状态、参数和结果，并保留轨迹定位入口 | `src/client/omv-toolview.tsx`、`tests/toolview.client.test.ts` |
+| Tool UI presentation | 原生 generic card + `kind` + Finding/Campaign/Runner 文件 `locations`；未接管的 Tool 仍走 generic card，可被 DSH UI follow-along | `src/tools.ts` presenters |
 | Typed events | `tools/result` → `dsh-omv/tool-result`，供其他插件接入审计遥测 | `src/events.ts` |
 | User settings seam | `dsh-omv` namespace stores only the last audit surface when the Host exposes custom namespaces; DSH rc.6 currently falls back to browser-local preference. Cordis Config remains the deployment contract | `src/settings.ts`, `src/settings-schema.ts`, client `settingsScope` + local fallback |
 | Bundle/profile 分层 | 包含 `dsh.bundle.patch`、稳定 `id: dsh-omv`，profile 层完整复述 config | `cordis.patch.yml`、profile dump |
@@ -28,7 +29,7 @@
 ## 下一阶段的原生融合方向
 
 1. **Definition / Provider / Consumer 拆包**：把 `OmvService` 的稳定请求/结果类型单独抽成 `dsh-omv-contracts`，便于替换本地 Provider 或远程 Provider。
-2. **工具域卡片**：为 Finding、Campaign Lane、Reproduction Run 注册 keyed `tool.call.toolview`，把当前 generic card 升级为证据状态、Diff、Run 状态的原生卡片；模型输出协议保持不变。
+2. **工具域卡片深化**：在现有 OMV keyed Tool Card 之上，为 Finding、Campaign Lane、Reproduction Run 增加证据状态、Diff、Run 状态等专用摘要；模型输出协议保持不变。
 3. **事件→遥测桥**：在 `dsh-omv/tool-result` 之上增加耗时、取消原因和 workspace scope 的匿名聚合，并提供 opt-in exporter，不把敏感 Evidence 写进日志。
 4. **HMR 场景测试**：在本地 patch 中修改 `config`，验证旧 HTTP/SSE/Watcher/Service scope 完整卸载后只保留一个新实例。
 

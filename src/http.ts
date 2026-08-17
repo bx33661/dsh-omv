@@ -93,6 +93,19 @@ async function routeRequest(
     sendJson(res, 200, success(versioned((await workbench.dashboard()).reproductionRuns, requestedProtocol)), method === 'HEAD')
     return
   }
+  if ((method === 'GET' || method === 'HEAD') && suffix === '/poc') {
+    const findingId = url.searchParams.get('findingId')?.trim()
+    if (findingId === undefined || findingId === '') throw new RequestError(400, 'findingId query parameter is required')
+    const [drafts, runs] = await Promise.all([workbench.poc.listDrafts(findingId), workbench.poc.listRuns(findingId)])
+    sendJson(res, 200, success(versioned({ drafts, runs }, requestedProtocol)), method === 'HEAD')
+    return
+  }
+  if ((method === 'GET' || method === 'HEAD') && suffix === '/poc-run') {
+    const runId = url.searchParams.get('id')?.trim()
+    if (runId === undefined || runId === '') throw new RequestError(400, 'id query parameter is required')
+    sendJson(res, 200, success(versioned(await workbench.poc.inspectRun(runId), requestedProtocol)), method === 'HEAD')
+    return
+  }
   if ((method === 'GET' || method === 'HEAD') && suffix === '/dedup') {
     const id = url.searchParams.get('id')?.trim()
     if (!id) throw new RequestError(400, 'id query parameter is required')
@@ -124,7 +137,18 @@ async function routeRequest(
     if (!isRecord(request) || typeof request.action !== 'string') {
       throw new RequestError(400, 'request body must contain an action')
     }
-    sendJson(res, 200, success(versioned(await workbench.action(request as unknown as ActionRequest), requestedProtocol)))
+    const abortController = new AbortController()
+    const abort = () => abortController.abort()
+    req.once('aborted', abort)
+    req.once('close', abort)
+    let result: unknown
+    try {
+      result = await workbench.action(request as unknown as ActionRequest, { signal: abortController.signal })
+    } finally {
+      req.off('aborted', abort)
+      req.off('close', abort)
+    }
+    sendJson(res, 200, success(versioned(result, requestedProtocol)))
     return
   }
   if (method !== 'GET' && method !== 'HEAD' && method !== 'POST') {

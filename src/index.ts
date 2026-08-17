@@ -143,6 +143,7 @@ export function apply(ctx: Context, config: Config = {}): void {
       'For campaign work inspect the Campaign, propose attack-surface cards with omv_campaign_surfaces, select or skip cards, then seed only selected cards before delegating one card per subagent; do not seed generic lanes when a surfaces file exists.',
       'Campaign Runner lanes are durable DSH sessions: inspect them with omv_campaign_run_inspect and always commit an outcome with omv_campaign_lane_update before a lane ends.',
       'Use omv_evidence_graph and omv_quality_gate to verify provenance and report readiness; bracket every local reproduction with omv_repro_run_start and omv_repro_run_finish.',
+      'For isolated PoC work use omv_poc_generate, edit and save the draft with omv_poc_draft_save, validate and explicitly approve with omv_poc_draft_approve, then run with omv_poc_run. Inspect result.json and provenance with omv_poc_run_inspect; never treat a passed run as a confirmed vulnerability until a human calls omv_poc_evidence_adopt.',
       'Use omv_quality_overview to triage the workspace queue and omv_dedup_scan before submission; report drafts and disclosure timelines belong to the omv-report and omv-disclose Agent workflows.',
       'If a DSH capability appears missing or a plugin is waiting, use omv_runtime_status to inspect Cordis Fiber dependencies before retrying.',
       'Treat Evidence.v1 source -> sink -> guard and observed reproduction as the canonical audit state.',
@@ -254,6 +255,8 @@ export type {
   PocValidation,
   PocGenerationRequest,
   PocDraft,
+  PocArtifact,
+  PocProvenance,
   PocRun,
   CodeRef,
 } from './contracts.js'

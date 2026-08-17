@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { mkdtemp, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { DockerPocExecutor } from '../src/poc-executor.js'
 import type { CommandRunner } from '../src/poc-executor.js'
 import type { PocDraft, OmvWorkbenchConfig } from '../src/contracts.js'
@@ -14,6 +17,7 @@ function validDraft(): PocDraft {
     image: 'python:3.12-slim',
     requiresNetwork: false,
     validation: { ok: true, errors: [], warnings: [] },
+    status: 'draft',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -162,16 +166,18 @@ describe('PoC Executor execution', () => {
   it('returns passed status when result JSON indicates success', async () => {
     const draft = validDraft()
     const config = validConfig()
+    const runDirectory = await mkdtemp(join(tmpdir(), 'omv-poc-test-'))
     const fakeRunner: CommandRunner = {
       async run() {
+        await writeFile(join(runDirectory, 'output', 'result.json'), '{"status":"passed","observedResult":"SSRF confirmed"}')
         return {
-          stdout: '{"status": "passed", "observedResult": "SSRF confirmed"}',
+          stdout: 'legacy stdout must not be parsed',
           stderr: '',
           exitCode: 0,
         }
       },
     }
-    const run = await executor.execute(draft, config, fakeRunner)
+    const run = await executor.execute(draft, config, fakeRunner, { runDirectory })
     expect(run.status).toBe('passed')
     expect(run.observedResult).toBe('SSRF confirmed')
   })

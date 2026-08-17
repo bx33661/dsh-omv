@@ -50,6 +50,7 @@ import { OmvWorkflowService, deriveAuditStage } from './workflow.js'
 import { OmvWorkspaceWatcher } from './watch.js'
 import { CampaignRunner, type LaneEvidenceState } from './runner.js'
 import { ReproductionService } from './reproduction.js'
+import { PocService } from './poc-service.js'
 import { buildEvidenceGraph, evaluateQualityGate } from './evidence-graph.js'
 
 import { inspectCampaigns, normalizeCampaignEcosystem, repairCampaign } from './campaigns.js'
@@ -86,6 +87,12 @@ const MUTATIONS = new Set([
   'workflow.start',
   'dedup.scan',
   'dedup.update',
+  'poc.generate',
+  'poc.validate',
+  'poc.draft.save',
+  'poc.draft.approve',
+  'poc.run.start',
+  'poc.evidence.adopt',
 ])
 
 const DASHBOARD_CACHE_TTL_MS = 1_000
@@ -95,6 +102,7 @@ export class OmvWorkbench {
   readonly workflow: OmvWorkflowService
   readonly runner: CampaignRunner
   readonly reproduction: ReproductionService
+  readonly poc: PocService
   readonly dedup: DedupService
   readonly reporting: ReportingService
   private readonly watcher: OmvWorkspaceWatcher
@@ -106,6 +114,7 @@ export class OmvWorkbench {
     this.workflow = new OmvWorkflowService(this.config.projectRoot)
     this.runner = new CampaignRunner(this.config.projectRoot)
     this.reproduction = new ReproductionService(this.config.projectRoot)
+    this.poc = new PocService(this.config)
     this.dedup = new DedupService(this.config.projectRoot)
     this.reporting = new ReportingService(this.config.projectRoot)
     this.watcher = new OmvWorkspaceWatcher(this.config.projectRoot, this.config.watchDebounceMs)
@@ -139,7 +148,7 @@ export class OmvWorkbench {
 
   private async buildDashboard(): Promise<DashboardPayload> {
     const workspace = await workspaceStatus(this.config.projectRoot)
-    const [{ findings: rawFindings, issues: workspaceIssues }, archived, campaignInspection, rawActivity, links, campaignRuns, reproductionRuns] = await Promise.all([
+    const [{ findings: rawFindings, issues: workspaceIssues }, archived, campaignInspection, rawActivity, links, campaignRuns, reproductionRuns, pocDrafts, pocRuns] = await Promise.all([
       readFindingWorkflowsSafe(this.config.projectRoot, workspace.findingsDir),
       listArchivedFindings(this.config.projectRoot),
       inspectCampaigns(this.config.projectRoot),
@@ -147,6 +156,8 @@ export class OmvWorkbench {
       this.workflow.links(),
       this.runner.list(),
       this.reproduction.list(),
+      this.poc.listDrafts(),
+      this.poc.listRuns(),
     ])
     const { campaigns, issues: campaignIssues } = campaignInspection
     const findings = await Promise.all(rawFindings.map(async finding => {
@@ -210,6 +221,8 @@ export class OmvWorkbench {
       activity,
       quality,
       reproductionRuns,
+      pocDrafts,
+      pocRuns,
     }
   }
 
@@ -242,10 +255,12 @@ export class OmvWorkbench {
     const raw = await readFile(detail.path, 'utf8')
     const parsed = parseYaml(raw)
     const evidence = isRecord(parsed) ? parsed : {}
-    const [links, history, reproductionRuns, dedup] = await Promise.all([
+    const [links, history, reproductionRuns, pocDrafts, pocRuns, dedup] = await Promise.all([
       this.workflow.links(),
       this.workflow.history(detail.id),
       this.reproduction.list(detail.id),
+      this.poc.listDrafts(detail.id),
+      this.poc.listRuns(detail.id),
       this.dedup.get(detail.id),
     ])
     const sessionLink = links[detail.id]
@@ -262,6 +277,8 @@ export class OmvWorkbench {
         stage: 'archived',
         history,
         reproductionRuns,
+        pocDrafts,
+        pocRuns,
         assessment,
         qualityGate,
         graph: buildEvidenceGraph({ detail, evidence, rawEvidence: raw, history, reproductionRuns }),
@@ -287,6 +304,8 @@ export class OmvWorkbench {
       doctor,
       review,
       reproductionRuns,
+      pocDrafts,
+      pocRuns,
       assessment,
       qualityGate,
       graph: buildEvidenceGraph({ detail, evidence, rawEvidence: raw, history, reproductionRuns }),
@@ -378,7 +397,7 @@ export class OmvWorkbench {
     }
   }
 
-  async action(request: ActionRequest): Promise<unknown> {
+  async action(request: ActionRequest, options: { signal?: AbortSignal } = {}): Promise<unknown> {
     if (!request.action) throw new Error('action is required')
     if (MUTATIONS.has(request.action) && !this.config.allowMutations) {
       throw new Error('workspace mutations are disabled by plugin configuration')
@@ -406,6 +425,44 @@ export class OmvWorkbench {
         return this.quality()
       case 'finding.dedup':
         return this.dedupSummary(requiredString(request.id, 'id'))
+      case 'poc.run.inspect':
+        return this.poc.inspectRun(requiredString(request.runId, 'runId'))
+      case 'poc.generate': {
+        const id = requiredString(request.id, 'id')
+        const payload = await this.finding(id)
+        result = await this.poc.generate(payload.detail, payload.evidence)
+        break
+      }
+      case 'poc.validate':
+        result = await this.poc.validateDraft(requiredString(request.draftId ?? request.id, 'draftId'))
+        break
+      case 'poc.draft.save': {
+        const findingId = requiredString(request.id ?? request.findingId, 'id')
+        result = await this.poc.saveDraft({
+          findingId,
+          ...(request.draftId === undefined ? {} : { draftId: request.draftId }),
+          script: requiredString(request.script, 'script'),
+          ...(request.language === undefined ? {} : { language: request.language }),
+          ...(request.templateId === undefined ? {} : { templateId: request.templateId }),
+          ...(request.image === undefined ? {} : { image: request.image }),
+          ...(request.requiresNetwork === undefined ? {} : { requiresNetwork: request.requiresNetwork }),
+        })
+        break
+      }
+      case 'poc.draft.approve': {
+        const draftId = requiredString(request.draftId ?? request.id, 'draftId')
+        result = await this.poc.approveDraft(draftId, request.approvedBy)
+        break
+      }
+      case 'poc.run.start': {
+        result = await this.poc.runDraft(requiredString(request.draftId, 'draftId'), { ...(options.signal === undefined ? {} : { signal: options.signal }), ...(request.sourceDir === undefined ? {} : { sourceDir: request.sourceDir }) })
+        break
+      }
+      case 'poc.evidence.adopt': {
+        const adopted = await this.poc.adoptEvidence(requiredString(request.runId, 'runId'))
+        result = adopted.run
+        break
+      }
       case 'finding.repro':
         result = await initReproArtifacts(requiredString(request.id, 'id'), this.config.projectRoot)
         break
@@ -557,7 +614,8 @@ export class OmvWorkbench {
       default:
         throw new Error(`unknown action: ${String(request.action)}`)
     }
-    const id = requiredString(request.id, 'id')
+    const id = request.id ?? (isRecord(result) && typeof result.findingId === 'string' ? result.findingId : undefined)
+    if (id === undefined) return result
     const after = await this.tryReadFinding(id)
     await this.workflow.record({
       findingId: id,

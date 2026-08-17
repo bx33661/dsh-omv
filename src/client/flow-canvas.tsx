@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { Button as DshButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { EvidenceGraph, EvidenceGraphNode } from '../contracts.js'
 import { DEFAULT_GRAPH_LAYOUT, layoutEvidenceGraph, truncateForCanvas, type LaidOutNode } from './graph-layout.js'
 import { useCanvasViewport } from './hooks.js'
@@ -92,11 +93,11 @@ export function EvidenceFlowCanvas({ graph, onOpenPath }: { graph: EvidenceGraph
           <span><i className="omv-flow-legend-dash" />未验证边</span>
         </div>
         <div className="omv-flow-zoom">
-          <button type="button" className="omv-flow-mode" aria-pressed={!showSupporting} onClick={() => { setShowSupporting(false); setSelected(undefined) }}>主路径</button>
-          <button type="button" className="omv-flow-mode" aria-pressed={showSupporting} onClick={() => setShowSupporting(true)}>全部证据 <small>{graph.nodes.length}</small></button>
-          <button type="button" aria-label="缩小" onClick={() => canvas.zoomBy(1 / 1.25)}>−</button>
-          <button type="button" aria-label="放大" onClick={() => canvas.zoomBy(1.25)}>＋</button>
-          <button type="button" aria-label="适配图谱" onClick={canvas.fit}>适配</button>
+          <DshButton variant="toolbar" size="sm" className="omv-flow-control omv-flow-mode" aria-pressed={!showSupporting} onClick={() => { setShowSupporting(false); setSelected(undefined) }}>主路径</DshButton>
+          <DshButton variant="toolbar" size="sm" className="omv-flow-control omv-flow-mode" aria-pressed={showSupporting} onClick={() => setShowSupporting(true)}>全部证据 <small>{graph.nodes.length}</small></DshButton>
+          <DshButton variant="toolbar" size="sm" className="omv-flow-control" aria-label="缩小" onClick={() => canvas.zoomBy(1 / 1.25)}>−</DshButton>
+          <DshButton variant="toolbar" size="sm" className="omv-flow-control" aria-label="放大" onClick={() => canvas.zoomBy(1.25)}>＋</DshButton>
+          <DshButton variant="toolbar" size="sm" className="omv-flow-control omv-flow-fit" aria-label="适配图谱" onClick={canvas.fit}>适配</DshButton>
         </div>
       </div>
       <div
@@ -161,7 +162,7 @@ export function EvidenceFlowCanvas({ graph, onOpenPath }: { graph: EvidenceGraph
             </small>
           </div>
           {selectedNode.openablePath !== undefined && onOpenPath !== undefined
-            ? <button type="button" className="omv-secondary" onClick={() => onOpenPath(selectedNode.openablePath!)}><Icon name="file" size={11} />打开源码</button>
+            ? <DshButton variant="outline" size="sm" onClick={() => onOpenPath(selectedNode.openablePath!)} icon={<Icon name="file" size={11} />}>打开源码</DshButton>
             : undefined}
         </div>
       )}

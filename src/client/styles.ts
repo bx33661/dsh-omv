@@ -243,9 +243,9 @@ export const WORKBENCH_CSS = String.raw`
   background: color-mix(in srgb, var(--metric-color, var(--omv-blue)) 12%, transparent);
   color: var(--metric-color, var(--omv-blue)); display: grid; place-items: center;
 }
-.omv-metric strong { display: block; margin-top: 12px; font-size: 28px; line-height: 1; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
-.omv-metric-foot { margin-top: 10px; display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--metric-color, var(--omv-muted)) 12%, transparent); color: var(--omv-muted); font-size: 11.5px; }
-.omv-metric-foot b { color: var(--metric-color, var(--omv-muted)); font-weight: 650; }
+.omv-metric strong { display: block; margin-top: 12px; font-size: 30px; line-height: 1; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.omv-metric-foot { margin-top: 10px; display: block; color: var(--omv-faint); font-size: 12px; }
+.omv-metric-foot b { color: var(--metric-color, var(--omv-muted)); font-weight: 600; }
 
 .omv-readiness-strip {
   position: relative; display: flex; align-items: center; gap: 16px; margin-bottom: 12px; padding: 16px 20px;
@@ -423,7 +423,10 @@ export const WORKBENCH_CSS = String.raw`
   animation: omv-fade-in .16s ease both;
 }
 .omv-detail {
-  position: relative; z-index: 6; width: min(860px, 100%); max-height: min(88vh, 900px); overflow: auto;
+  /* Height is capped against the panel's own box (100%), not vh: vh resolves to the whole
+     browser window, which is taller than this panel once the host chat composer/task bar
+     below it are accounted for, and would let the card spill past the panel's bottom edge. */
+  position: relative; z-index: 6; width: min(860px, 100%); max-height: min(100%, 900px); overflow: auto;
   border: 1px solid var(--omv-line); border-radius: 16px; background: var(--omv-surface); box-shadow: var(--omv-shadow-lg);
   animation: omv-pop-in .2s cubic-bezier(.22, .61, .36, 1) both;
 }
@@ -954,7 +957,7 @@ button.omv-chain-card { cursor: pointer; }
 .omv-primary:active { transform: translateY(0); filter: brightness(.94); box-shadow: var(--omv-shadow-xs); }
 .omv-secondary:hover { box-shadow: var(--omv-shadow-sm); transform: translateY(-1px); }
 .omv-secondary:active { transform: translateY(0); box-shadow: var(--omv-shadow-xs); }
-.omv-metrics { gap: 12px; margin-bottom: 14px; }
+.omv-metrics { gap: 16px; margin-bottom: 16px; }
 .omv-metric {
   position: relative;
   min-height: 108px;
@@ -974,9 +977,9 @@ button.omv-chain-card { cursor: pointer; }
   width: 30px; height: 30px; border-radius: 10px;
   background: color-mix(in srgb, var(--metric-color, var(--omv-blue)) 12%, transparent);
 }
-.omv-metric strong { margin-top: 12px; font-size: 28px; font-variant-numeric: tabular-nums; }
-.omv-metric-foot { margin-top: 10px; font-size: 11.5px; }
-.omv-grid { gap: 14px; }
+.omv-metric strong { margin-top: 12px; font-size: 30px; font-variant-numeric: tabular-nums; }
+.omv-metric-foot { margin-top: 10px; font-size: 12px; }
+.omv-grid { gap: 16px; }
 .omv-panel, .omv-table-wrap, .omv-campaign { border-radius: var(--omv-radius-md); box-shadow: var(--omv-shadow-xs); }
 .omv-panel-head { min-height: 54px; padding: 0 18px; }
 .omv-panel-head h3 { font-size: 12.5px; letter-spacing: -.01em; }

@@ -1,8 +1,46 @@
-# OMV 审计台（dsh-omv）
+# OMV 审计台（`dsh-omv`）
 
-`OMV 审计台` 是面向 [DeepSeek Harness](https://deepseek-harness.github.io/deepseek-harness/develop/basic/) 的证据优先漏洞审计工作台，包名保持为 `dsh-omv` 以兼容现有安装。它复用 `oh-my-vul` 的 Evidence.v1、Campaign.v1、工作区索引和发现生命周期，并直接进入 DSH 的工作区、会话、命令、工具、Composer 与设置体系，不再运行一套独立的插件外壳。
+### 在 DeepSeek Harness 里做证据优先的漏洞研究
 
-## 能力
+[![CI](https://github.com/bx33661/dsh-omv/actions/workflows/ci.yml/badge.svg)](https://github.com/bx33661/dsh-omv/actions/workflows/ci.yml)
+[![Node.js 22+](https://img.shields.io/badge/node.js-22%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![DeepSeek Harness](https://img.shields.io/badge/DeepSeek%20Harness-native-4d6bfe)](https://github.com/deepseek-ai/deepseek-harness)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2563eb.svg)](./LICENSE)
+
+[`English`](./README.md) · [架构说明](./docs/architecture.md) · [DSH 原生融合记录](./docs/dsh-integration.md)
+
+<p align="center">
+  <img src="./docs/assets/workbench-overview.png" alt="OMV 审计台工作台概览" width="960">
+</p>
+
+OMV 审计台是一个原生 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件，用于证据驱动的漏洞研究。它把 [oh-my-vul](https://github.com/bx33661/oh-my-vul) 工作区接入 DSH 的会话、工具、命令、工作区和设置体系，让审计过程和产生证据的工作保持在同一个环境里。
+
+包名保留为 `dsh-omv`，以兼容现有安装；在 DSH 中显示的产品名是 **OMV 审计台**。
+
+## 它为 DSH 带来什么
+
+| 原生表面 | 提供的能力 |
+| --- | --- |
+| 审计工作台 | 证据成熟度、Finding 队列、质量信号、Campaign Graph、复现实验室、PoC 实验室、全局检索和最近活动。 |
+| Agent 工具 | 29 个 OMV Tool，带类型化输出、取消检查、文件定位信息和 OMV 专用 Tool Card。 |
+| 可恢复工作流 | Finding ↔ Session 绑定、Campaign Runner、重启恢复、结构化复现 Run、去重、评审、报告和披露衔接。 |
+| 证据模型 | Evidence.v1 与 Campaign.v1 继续作为权威数据；界面投影 source、sink、guard、reproducer、observed result、provenance 和下一步动作。 |
+| 插件扩展 | workspace-scoped 的 `ctx.omv` 服务，以及供其他插件消费的类型化 `dsh-omv/tool-result` 事件。 |
+
+## 研究闭环
+
+```
+定位 → 检查 → 复现 → 评审 → 确认 → 报告 → 披露
+  │       │        │        │
+  └───────┴────────┴────────┴── 每一步都回链到 Evidence.v1
+```
+
+- **Finding**：清楚展示 candidate、investigating、reproducing、confirmed、report ready、disclosed、blocked 和 archived。
+- **Evidence**：保留 `source → sink → guard`、doctor issues、review verdict、open questions、哈希、Diff 和复现结果。
+- **Campaign**：把目标列表变成受并发限制的 DSH fork 会话，支持暂停、恢复、取消、重试、Lane 状态和重启恢复。
+- **PoC**：从草稿生成、人工批准、Docker 隔离，到结果检查、产物哈希、provenance 和人工采纳，形成明确边界。
+
+## 能力全览
 
 - **风险态势总览**：活跃发现、确认数，以及“尚未映射 / 正在成形 / 证据支撑 / 已经验证 / 存在争议”的证据分布；不再用平均完成度概括不同阶段的研究。
 - **优先审计队列**：按 OMV 工作流优先级展示每条发现及精确下一步动作。
@@ -35,7 +73,7 @@
 - **DSH 工作区绑定**：侧栏入口会注册或复用配置目录对应的 DSH Workspace；任意会话中的 OMV 能力自动绑定该会话的 `cwd`。
 - **会话上下文**：标题栏显示 OMV 状态，Composer 下方同步活跃、确认与阻塞计数。
 - **DSH 模型工具**：29 个原生 Tool，覆盖工作区质量、DSH Fiber 生命周期、Finding、Runner、证据图、去重、复现与 PoC，并通过 keyed `tool.call.toolview` 使用 OMV 专用 Tool Card 呈现动作、目标、状态、参数和结果；展开后可回到轨迹定位。
-- **原生斜杠命令**：19 个 `/omv*` 命令，覆盖读取、创建、修复、关联、复现、状态、Campaign Runtime、去重与检索；命令生命周期写入会话日志。
+- **原生斜杠命令**：20 个 `/omv*` 命令，覆盖读取、创建、修复、关联、复现、状态、Campaign Runtime、去重与检索；命令生命周期写入会话日志。
 - **稳定协议与导出**：HTTP payload 默认携带 `protocolVersion: "2"`，通过 `?protocol=1` 提供加法兼容；设置页可导出完整工作区快照。
 - **Agent 上下文注入**：通过 DSH `systemPrompt` 告知 Agent 证据优先的 OMV 工作流与工具选择规则。
 - **原生设置页**：在 DSH 设置中检查默认工作区、索引、写入开关、能力数量并进入审计工作区；“默认视图”优先写入 `dsh-settings`，在当前 rc.6 Host 尚未开放插件命名空间时自动回退到浏览器本地偏好。

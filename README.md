@@ -1,9 +1,10 @@
 # OMV Audit Desk (`dsh-omv`)
 
-An evidence-first vulnerability audit workbench for [DeepSeek Harness](https://deepseek-harness.github.io/deepseek-harness/develop/basic/), powered by the public `oh-my-vul` API.
+### Evidence-first vulnerability research inside DeepSeek Harness
 
 [![CI](https://github.com/bx33661/dsh-omv/actions/workflows/ci.yml/badge.svg)](https://github.com/bx33661/dsh-omv/actions/workflows/ci.yml)
 [![Node.js 22+](https://img.shields.io/badge/node.js-22%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![DeepSeek Harness](https://img.shields.io/badge/DeepSeek%20Harness-native-4d6bfe)](https://github.com/deepseek-ai/deepseek-harness)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2563eb.svg)](./LICENSE)
 
 [中文文档](./README.zh-CN.md) · [Architecture](./docs/architecture.md) · [DSH integration guide](./docs/dsh-integration.md)
@@ -12,43 +13,60 @@ An evidence-first vulnerability audit workbench for [DeepSeek Harness](https://d
   <img src="./docs/assets/workbench-overview.png" alt="OMV Audit Desk workbench" width="960">
 </p>
 
-`OMV Audit Desk` is the product name; `dsh-omv` remains the package id for upgrade compatibility. It is a dual-face, native DSH bundle:
+OMV Audit Desk is a native [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin for evidence-driven vulnerability research. It connects [oh-my-vul](https://github.com/bx33661/oh-my-vul) workspaces to DSH sessions, tools, commands, workspace state, and settings.
 
-- a Node plugin joins DSH web-server, tool, command, system-prompt, and workspace-registry services;
-- a browser client contributes a conversation view, session status, composer context, command rows, settings section, and workspace launcher;
-- `cordis.patch.yml` installs both faces into a DSH Web profile.
+The package id remains `dsh-omv` for installation compatibility; the product name shown in DSH is **OMV Audit Desk**.
 
-## Features
+## What it adds to DSH
 
-- Evidence-maturity dashboard with five contextual dimensions instead of a single completion percentage
-- Candidate, confirmed, blocked, and archived finding ledger
-- `source → sink → guard` evidence-chain inspection
-- Derived Audit Loop stages, persistent Finding-to-Session links, workflow history, and Evidence diffs
-- One-click Agent workflows for audit, reproduction, deduplication, adversarial review, reporting, and disclosure
-- Doctor issues, review verdicts, open questions, and exact next actions without circular score deductions
-- Durable Campaign Runner with bounded concurrency, one native DSH forked session per lane, pause/resume/cancel/retry, and restart recovery
-- Provenance-aware Evidence Graph, stage-aware report conditions, and structured reproduction runs
-- Closed-loop PoC laboratory: editable drafts, explicit approval, Docker isolation, `/output/result.json`, artifact hashes, provenance, and manual Evidence adoption
-- Dedicated quality center, reproduction lab, dedup intelligence, report-readiness signals, and Campaign Graph
-- DSH-native visual system that uses the host background layers, borders, typography, and alias colors directly, with calm hierarchy, sticky workbench chrome, and responsive mobile breakpoints
-- Campaign outcomes distinguish completed work from blocked lanes that still need attention
-- Campaign compatibility diagnostics isolate malformed YAML, normalize common registry aliases, and repair derived metadata from the workbench
-- Workspace-wide search, recent activity feed, and native DSH Job status with contextual repair-and-retry
-- SSE workspace synchronization with polling fallback
-- Recent workspace activity surfaced on the overview page
-- Candidate creation, validation, reproduction scaffolding, promotion, and restore actions
-- 29 model tools covering workspace quality, DSH lifecycle diagnostics, Finding, workflow, Campaign Runtime, evidence provenance, reproduction, PoC isolation, dedup, and search
-- 19 durable `/omv*` commands, including `omv-dedup` and the Campaign Runtime set
-- Automatic binding to the current DSH session workspace
-- Native tool presentation, including an OMV-keyed `tool.call.toolview` card with expandable arguments/results and trajectory inspection, plus an evidence-first Agent system-prompt section
-- Central cooperative cancellation guards on every native OMV tool invocation
-- Native `omv` Cordis service for other plugins, lifecycle diagnostics via `omv_runtime_status`, and typed `dsh-omv/tool-result` events
-- User preference persistence: uses the native `dsh-omv` settings namespace when the Host exposes it, with a browser-local fallback on DSH rc.6; deployment knobs remain in Cordis Config
-- Protocol v2 payloads, additive `?protocol=1` compatibility, and complete workspace export
+| Surface | What it provides |
+| --- | --- |
+| Audit desk | Evidence maturity, finding queue, quality signals, Campaign graph, reproduction lab, PoC lab, search, and recent activity. |
+| Native Agent tools | 29 OMV tools with typed output, cancellation guards, file locations, and OMV-specific Tool Cards. |
+| Durable workflows | Finding ↔ Session links, Campaign Runner lanes, restart recovery, structured reproduction Runs, deduplication, review, reporting, and disclosure hand-offs. |
+| Evidence model | Evidence.v1 and Campaign.v1 remain authoritative; the UI projects source, sink, guard, reproducer, observed result, provenance, and next action. |
+| Extension seam | A workspace-scoped `ctx.omv` service plus typed `dsh-omv/tool-result` events for other plugins. |
+
+## The research loop
+
+```
+orient → inspect → reproduce → review → confirm → report → disclose
+   │         │          │          │
+   └─────────┴──────────┴──────────┴── every step stays linked to Evidence.v1
+```
+
+- **Findings** keep candidate, investigating, reproducing, confirmed, report-ready, disclosed, blocked, and archived states visible.
+- **Evidence** keeps `source → sink → guard`, doctor issues, review verdicts, open questions, hashes, diffs, and reproduction results traceable.
+- **Campaigns** turn targets into bounded DSH fork sessions with pause, resume, cancel, retry, lane status, and restart recovery.
+- **PoC runs** move from generated draft to explicit approval, Docker isolation, result inspection, artifact hashes, provenance, and human evidence adoption.
+
+## Native DSH integration
+
+The plugin has two coordinated faces:
+
+- **Host** — HTTP bridge, 29 tools, 20 slash commands, system-prompt guidance, the `omv` Cordis service, workspace scoping, and file watching.
+- **Client** — Vulnerability Audit view, session header state, composer context, command rows, settings section, workspace launcher, and keyed `tool.call.toolview` cards.
+
+It uses DSH seams instead of maintaining a parallel shell: native workspaces and sessions, DSH alias colors, host typography, session replay, SSE updates, and the normal plugin lifecycle.
+
+### OMV Tool Cards
+
+Cards keep the conversation compact while exposing OMV action, salient target, running/completed/failed/interrupted state, expandable arguments and results, and a trajectory inspection action when the host provides it. Non-OMV tools keep the DSH generic presentation.
+
+## Highlights
+
+- Evidence maturity across five contextual dimensions, with exact blockers and next actions.
+- Finding ledger with candidate, confirmed, blocked, and archived views.
+- `source → sink → guard` inspection, Evidence diffs, review verdicts, open questions, and provenance.
+- Campaign Runner with bounded concurrency, one native fork session per lane, pause/resume/cancel/retry, and restart recovery.
+- Reproduction lab, dedup intelligence, quality center, report-readiness signals, and Campaign Graph.
+- PoC drafts with explicit approval, Docker isolation, artifact hashes, provenance, and manual Evidence adoption.
+- Workspace-wide search, recent activity, native DSH Job status, SSE synchronization, and polling fallback.
+- 29 native model tools, 20 durable `/omv*` commands, and a typed `ctx.omv` service for other plugins.
 
 ## Install
 
-There are two separate installation steps: `npm install` prepares this checkout's dependencies and build output; `dsh plugin --profile web add ...` installs the plugin into the DSH Web profile. Choose one of the following modes.
+Current releases are installed from a checkout, local package, or GitHub release tarball. The package is not published to npm, so `npm install` prepares a checkout rather than downloading `dsh-omv` by name.
 
 ### Source development (recommended for UI work)
 

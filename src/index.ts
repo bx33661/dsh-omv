@@ -16,7 +16,6 @@ import { OmvService } from './service.js'
 import { DEFAULT_OMV_SETTINGS, OMV_SETTINGS_NAMESPACE } from './settings.js'
 import { OmvSettingsSchema } from './settings-schema.js'
 import { registerOmvTools } from './tools.js'
-import { OmvWorkbench } from './workbench.js'
 
 export const name = 'dsh-omv'
 export const inject = ['webServer', 'tools', 'commands', 'systemPrompt', 'workspaceRegistry']

@@ -1,4 +1,4 @@
-import type { ClientContext, ISessions, IWorkspaces, JobView, SessionId, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ClientContext, ISessions, IWorkspaces, JobView, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { CommandRowProps, ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
@@ -17,12 +17,9 @@ import type {
 } from '../contracts.js'
 import {
   DEFAULT_OMV_SETTINGS,
-  OMV_LOCAL_TAB_KEY,
   OMV_SETTINGS_NAMESPACE,
   OMV_TABS,
-  isOmvSettingsTab,
   type OmvSettings,
-  type OmvSettingsTab,
 } from '../settings.js'
 import { ensureWorkbenchStyles } from './styles.js'
 import { OMV_COMMANDS, OMV_DISPLAY_NAME } from './types.js'
@@ -33,7 +30,7 @@ import { shouldHandleShortcut } from './derive.js'
 import { useActionState, useCampaignRunner, useDashboard, useOmvEvents } from './hooks.js'
 import {
   CampaignDetail, CommandPalette, Findings, Campaigns, FindingDetail, NewCampaignDialog, NewFindingDialog, WorkbenchErrorState,
-  Overview, QualityPage, ReproductionPage, SearchPage,
+  Overview, ReproductionPage, SearchPage,
 } from './pages.js'
 import { Icon, Loading } from './ui.js'
 
@@ -296,7 +293,7 @@ function AuditSettingsSection({ close, projectRoot, openWorkbench, openPath, set
         <div className="omv-settings-row"><span>当前发现</span><b>{dashboard?.metrics.active ?? '—'}</b></div>
         <div className="omv-settings-row"><span>Agent 能力</span><b>23 工具 · 20 命令</b></div>
         <div className="omv-settings-row"><span>默认视图</span><select className="omv-settings-select" value={defaultTab} onChange={event => { persistDefaultTab(settings, event.target.value as Tab) }}>
-          <option value="overview">总览</option><option value="findings">漏洞</option><option value="quality">质量</option><option value="reproduction">复现</option><option value="campaigns">战役</option><option value="search">搜索</option>
+          <option value="overview">总览</option><option value="findings">漏洞</option><option value="reproduction">复现</option><option value="campaigns">战役</option><option value="search">搜索</option>
         </select></div>
       </section>
       <div className="omv-settings-actions">
@@ -325,6 +322,7 @@ function OmvCommandRow({ node }: CommandRowProps) {
 function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWorkbench, openPath, jobs }: WorkspaceSurfaceInjected & { sessionId: SessionId; jobs: readonly JobView[] }) {
   const [tab, setTab] = useState<Tab>(() => settings.getSnapshot().value?.defaultTab ?? localDefaultTab() ?? DEFAULT_OMV_SETTINGS.defaultTab)
   const [detail, setDetail] = useState<FindingPayload>()
+  const [detailExpanded, setDetailExpanded] = useState(false)
   const [campaignDetail, setCampaignDetail] = useState<CampaignPayload>()
   const [detailLoading, setDetailLoading] = useState(false)
   const [dialog, setDialog] = useState<Dialog>(null)
@@ -356,6 +354,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
   const showFinding = useCallback(async (id: string, archived = false) => {
     // Stale-while-revalidate: keep the visible panel until fresh data lands.
     setCampaignDetail(undefined)
+    if (detailRef.current === undefined) setDetailExpanded(false)
     setDetailLoading(true)
     try {
       const query = new URLSearchParams({ id, ...(archived ? { archived: 'true' } : {}) })
@@ -438,7 +437,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
       if (event.key !== 'Escape') return
       if (dialog !== null) setDialog(null)
       else if (commandPaletteOpen) setCommandPaletteOpen(false)
-      else if (detail !== undefined) setDetail(undefined)
+      else if (detail !== undefined) { setDetail(undefined); setDetailExpanded(false) }
       else if (campaignDetail !== undefined) setCampaignDetail(undefined)
     }
     window.addEventListener('keydown', onKeyDown)
@@ -455,7 +454,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
         if (request.id !== undefined && detailRef.current?.detail.id === request.id && request.action !== 'finding.archive') {
           await showFinding(request.id)
         }
-        if (request.action === 'finding.archive') setDetail(undefined)
+        if (request.action === 'finding.archive') { setDetail(undefined); setDetailExpanded(false) }
         const campaignId = campaignDetailRef.current?.campaign.id
         if (campaignId !== undefined && request.id === campaignId && request.action.startsWith('campaign.')) {
           await showCampaign(campaignId)
@@ -590,7 +589,6 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
             <>
               {tab === 'overview' && <Overview data={dashboard} jobs={jobs} onRetryJob={job => { void retryJob(job) }} onTab={selectTab} onFinding={id => { void showFinding(id) }} onNew={() => setDialog('finding')} onOpenConfigured={openConfigured} />}
               {tab === 'findings' && <Findings data={dashboard} onFinding={(id, archived) => { void showFinding(id, archived) }} onNew={() => setDialog('finding')} onOpenConfigured={openConfigured} />}
-              {tab === 'quality' && <QualityPage data={dashboard} onTab={selectTab} onFinding={id => { void showFinding(id) }} onOpenConfigured={openConfigured} />}
               {tab === 'reproduction' && <ReproductionPage data={dashboard} onFinding={id => { void showFinding(id) }} onStart={id => { void startReproduction(id) }} />}
               {tab === 'campaigns' && <Campaigns data={dashboard} busy={anyBusy} onCampaign={id => { void showCampaign(id) }} onNew={() => setDialog('campaign')} onRepair={id => { void perform({ action: 'campaign.repair', id }, 'Campaign 配置已修复') }} />}
               {tab === 'search' && <SearchPage projectRoot={projectRoot} onFinding={(id, archived) => { void showFinding(id, archived) }} onCampaign={id => { void showCampaign(id) }} />}
@@ -604,7 +602,9 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
         busy={anyBusy}
         isBusy={isBusy}
         currentSessionId={sessionId}
-        onClose={() => setDetail(undefined)}
+        expanded={detailExpanded}
+        onToggleExpand={() => setDetailExpanded(value => !value)}
+        onClose={() => { setDetail(undefined); setDetailExpanded(false) }}
         onAction={(request, message) => { void perform({ ...request, sessionId }, message) }}
         onWorkflow={intent => { void startWorkflow(intent) }}
         onLink={() => { void linkCurrentSession() }}
@@ -639,7 +639,6 @@ function AuditToolbar({ tab, dashboard, busy, live, jobs, lastUpdated, refreshEr
   const items: { id: Tab; label: string; icon: IconName; count?: number | undefined }[] = [
     { id: 'overview', label: '总览', icon: 'grid' },
     { id: 'findings', label: '漏洞', icon: 'finding', count: dashboard?.metrics.active },
-    { id: 'quality', label: '质量', icon: 'gauge', count: dashboard?.quality.issues.length },
     { id: 'reproduction', label: '复现', icon: 'pulse', count: dashboard?.metrics.activeReproductions },
     { id: 'campaigns', label: '战役', icon: 'campaign', count: dashboard?.metrics.campaigns },
     { id: 'search', label: '搜索', icon: 'search' },
@@ -648,7 +647,7 @@ function AuditToolbar({ tab, dashboard, busy, live, jobs, lastUpdated, refreshEr
     <div className="omv-native-toolbar">
       <nav className="omv-nav" aria-label={`${OMV_DISPLAY_NAME}视图`} role="tablist">
         {items.map((item, index) => {
-          const shortcut = index === 9 ? '0' : String(index + 1)
+          const shortcut = String(index + 1)
           return <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} aria-controls="omv-workbench-panel" aria-keyshortcuts={shortcut} title={`${item.label}（快捷键 ${shortcut}）`} className="omv-nav-button" data-active={tab === item.id} onClick={() => onTab(item.id)}><Icon name={item.icon} size={13} /><span>{item.label}</span>{item.count !== undefined && <b className="omv-nav-count">{item.count}</b>}</button>
         })}
       </nav>

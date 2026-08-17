@@ -1,13 +1,28 @@
 import type { CSSProperties, ReactNode } from 'react'
-import type { DashboardPayload, EvidenceAssessment } from '../contracts.js'
+import {
+  siDart,
+  siDotnet,
+  siElixir,
+  siGo,
+  siLua,
+  siNpm,
+  siOpenjdk,
+  siPerl,
+  siPhp,
+  siPython,
+  siR,
+  siRuby,
+  siRust,
+  siSwift,
+} from 'simple-icons'
+import type { SimpleIcon } from 'simple-icons'
+import type { EvidenceAssessment } from '../contracts.js'
 import { formatCodeRef, parseCodeRef } from '../code-ref.js'
 import type { IconName } from './types.js'
 import {
-  checkStateIcon,
   confidenceLabel,
   displayValue,
   maturityLabel,
-  scoreColor,
   statusColor,
   statusLabel,
 } from './runtime.js'
@@ -20,32 +35,85 @@ export function Metric({ label, value, foot, icon, color }: { label: string; val
   return <article className="omv-metric" style={{ '--metric-color': color } as CSSProperties}><div className="omv-metric-head"><span>{label}</span><i className="omv-metric-icon"><Icon name={icon} size={13} /></i></div><strong>{value}</strong><div className="omv-metric-foot">{foot}</div></article>
 }
 
-export function Posture({ data }: { data: DashboardPayload }) {
-  const maturity = data.metrics.evidenceMaturity
-  const needsWork = maturity.unmapped + maturity.developing + maturity.contested
-  return <section className="omv-panel"><div className="omv-panel-head"><div><h3>证据态势</h3><p>按论证成熟度分布，不再求平均分</p></div></div><div className="omv-posture"><div className="omv-posture-score"><strong>{maturity.verified + maturity.supported}</strong><span>条发现已有支撑性证据</span></div><div className="omv-legend"><Legend color="var(--dsw-alias-state-success-primary, #329568)" label="已经验证" value={maturity.verified} /><Legend color="var(--dsw-alias-state-business-primary, #4d6bfe)" label="证据支撑" value={maturity.supported} /><Legend color="var(--dsw-alias-state-warn-primary, #b7791f)" label="正在成形" value={maturity.developing} /><Legend color="var(--dsw-alias-label-tertiary, #8b8f98)" label="尚未映射" value={maturity.unmapped} /><Legend color="var(--dsw-alias-state-error-primary, #d44c4c)" label="存在争议" value={maturity.contested} /></div><div className="omv-alert">{needsWork > 0 ? `${needsWork} 条发现需要补证或澄清边界；候选状态不会因报告材料未齐被判作低完成度。` : '当前活跃发现均已形成支撑性证据。'}</div></div></section>
-}
-
-export function Legend({ color, label, value }: { color: string; label: string; value: number }) {
-  return <div className="omv-legend-row"><i style={{ '--legend': color } as CSSProperties} /><span>{label}</span><b>{value}</b></div>
-}
-
-export function Score({ value }: { value: number }) {
-  const color = scoreColor(value)
-  return <div className="omv-score"><span className="omv-score-track"><i style={{ width: `${Math.max(0, Math.min(100, value))}%`, '--score-color': color } as CSSProperties} /></span><b>{value}%</b></div>
-}
-
 export function Maturity({ assessment, compact = false }: { assessment: EvidenceAssessment; compact?: boolean }) {
-  return <div className="omv-maturity" data-maturity={assessment.maturity} title={assessment.summary}><i /><span>{maturityLabel(assessment.maturity)}</span>{!compact && <b>{confidenceLabel(assessment.confidence)}</b>}</div>
+  const icon: IconName = assessment.maturity === 'verified' ? 'check' : assessment.maturity === 'supported' ? 'shield' : assessment.maturity === 'contested' ? 'alert' : 'pulse'
+  return <div className="omv-maturity" data-maturity={assessment.maturity} title={assessment.summary}><i><Icon name={icon} size={compact ? 10 : 11} /></i><span>{maturityLabel(assessment.maturity)}</span>{!compact && <b>{confidenceLabel(assessment.confidence)}</b>}</div>
 }
 
 export function Status({ value }: { value: string }) {
   const color = statusColor(value)
-  return <span className="omv-status" style={{ '--status': color } as CSSProperties} aria-label={`状态：${statusLabel(value)}`}>{statusLabel(value)}</span>
+  return <span className="omv-status" style={{ '--status': color } as CSSProperties} aria-label={`状态：${statusLabel(value)}`}><Icon name={statusIcon(value)} size={11} />{statusLabel(value)}</span>
+}
+
+export function EvidenceStatusLogo({ maturity }: { maturity: EvidenceAssessment['maturity'] }) {
+  const label = maturity === 'verified' ? '已验证' : maturityLabel(maturity)
+  return <span className="omv-evidence-status-logo" data-maturity={maturity} role="img" aria-label={`证据状态：${label}`} title={`证据状态：${label}`}><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" className="omv-evidence-logo-ring" /><circle cx="32" cy="32" r="22" className="omv-evidence-logo-disc" /><path d="M32 17.5 45 23v9.1c0 8.4-5.1 14.5-13 17.2-7.9-2.7-13-8.8-13-17.2V23l13-5.5Z" className="omv-evidence-logo-shield" /><path d="m25.5 32.5 4.2 4.2 8.8-9.1" className="omv-evidence-logo-check" /><path d="m48.5 12.5.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9.9-2.6Z" className="omv-evidence-logo-spark" /></svg></span>
+}
+
+function statusIcon(value: string): IconName {
+  if (['confirmed', 'report_ready', 'passed', 'completed', 'verified', 'supported', 'selected', 'clear'].includes(value)) return 'check'
+  if (['blocked', 'failed', 'error', 'missing', 'needs_attention', 'warning', 'contested'].includes(value)) return 'alert'
+  if (['archived', 'disclosed'].includes(value)) return 'archive'
+  if (['cancelled', 'skipped'].includes(value)) return 'close'
+  if (value === 'finding') return 'finding'
+  if (value === 'campaign') return 'campaign'
+  if (['candidate', 'investigating', 'reproducing', 'running', 'queued', 'pending', 'awaiting_evidence', 'partial', 'open'].includes(value)) return 'pulse'
+  return 'activity'
 }
 
 export function EcosystemAvatar({ ecosystem, size = 'md' }: { ecosystem: string; size?: 'md' | 'lg' }) {
-  return <span className="omv-eco-avatar" data-size={size} aria-hidden="true">{ecosystem.charAt(0).toUpperCase()}</span>
+  const normalized = ecosystem.trim().toLowerCase()
+  const label = normalized === '' ? '未知生态' : `${normalized} 生态`
+  return <span className="omv-eco-avatar" data-size={size} data-ecosystem={normalized || 'unknown'} role="img" aria-label={label} title={label}><EcosystemLogo ecosystem={normalized} fallback={ecosystem.charAt(0).toUpperCase()} /></span>
+}
+
+const ECOSYSTEM_ICONS: Readonly<Record<string, SimpleIcon>> = {
+  npm: siNpm,
+  python: siPython,
+  pypi: siPython,
+  pip: siPython,
+  go: siGo,
+  rust: siRust,
+  cargo: siRust,
+  java: siOpenjdk,
+  ruby: siRuby,
+  php: siPhp,
+  csharp: siDotnet,
+  'c#': siDotnet,
+  swift: siSwift,
+  dart: siDart,
+  elixir: siElixir,
+  perl: siPerl,
+  r: siR,
+  lua: siLua,
+}
+
+function EcosystemLogo({ ecosystem, fallback }: { ecosystem: string; fallback: string }) {
+  const icon = ECOSYSTEM_ICONS[ecosystem]
+  if (icon !== undefined) {
+    return <svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path d={icon.path} fill={`#${icon.hex}`} /></svg>
+  }
+  return <LegacyEcosystemLogo ecosystem={ecosystem} fallback={fallback} />
+}
+
+function LegacyEcosystemLogo({ ecosystem, fallback }: { ecosystem: string; fallback: string }) {
+  switch (ecosystem) {
+    case 'npm': return <svg viewBox="0 0 44 20" aria-hidden="true"><path fill="currentColor" d="M1 1h42v18H22v-3h-7v3H1z" /><path fill="var(--eco-cutout, #fff)" d="M7 5v10h4V8h3v7h4V5zm16 0v10h4V8h3v7h4V5z" /></svg>
+    case 'python': case 'pypi': case 'pip': return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#3776ab" d="M12 2c-4.4 0-4.8 2-4.8 4.5V9h5v1H5.5C2.8 10 2 11.9 2 14s.8 4 3.5 4h2.1v-3c0-2.5 1.5-4 4-4h4.9V6.5C16.5 3.8 15.1 2 12 2m-2.7 2.2h2.3v1.4H9.3z"/><path fill="#ffd343" d="M12 22c4.4 0 4.8-2 4.8-4.5V15h-5v-1h6.7c2.7 0 3.5-1.9 3.5-4s-.8-4-3.5-4h-2.1v3c0 2.5-1.5 4-4 4H7.5v4.5c0 2.7 1.4 4.5 4.5 4.5m2.7-2.2h-2.3v-1.4h2.3z"/></svg>
+    case 'go': return <svg viewBox="0 0 40 24" aria-hidden="true"><path fill="#00add8" d="M2 13.5c4.2-7.2 10.5-10.8 18.7-10.8 5.8 0 10.3 1.7 13.6 5.1l-2.1 2.2c-2.8-2.5-6.3-3.8-10.5-3.8-6.1 0-11 2.5-14.8 7.4z"/><text x="11" y="20" fill="#00add8" fontSize="13" fontWeight="800" fontFamily="Arial, sans-serif">go</text></svg>
+    case 'rust': case 'cargo': return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#dea584" d="m12 2 2 1.1 2.3-.2 1.1 2 2 1.1-.2 2.3 1.1 2-1.1 2 .2 2.3-2 1.1-1.1 2-2.3-.2-2 1.1-2-1.1-2.3.2-1.1-2-2-1.1.2-2.3-1.1-2 1.1-2-.2-2.3 2-1.1 1.1-2 2.3.2z"/><path fill="#fff" d="M8 8.2h8v1.7h-2.8v5.8h-2.4V9.9H8z"/></svg>
+    case 'java': return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#e76f00" d="M8 16.3c-1.6.6-2.4 1.3-2.4 2 0 1.4 3 2.5 6.7 2.5s6.7-1.1 6.7-2.5c0-.7-.8-1.4-2.4-2 .5.5.8 1 .8 1.5 0 1.2-2.3 2.1-5.1 2.1s-5.1-.9-5.1-2.1c0-.5.3-1 .8-1.5"/><path fill="#5382a1" d="M8.7 12.6c-1.2.4-1.8 1-1.8 1.6 0 1 2.3 1.8 5.1 1.8s5.1-.8 5.1-1.8c0-.6-.6-1.2-1.8-1.6.3.3.5.6.5.9 0 .8-1.7 1.4-3.8 1.4s-3.8-.6-3.8-1.4c0-.3.2-.6.5-.9"/><path fill="#e76f00" d="M12 3c1.8 1.3-1.2 2.1.5 3.4 1.3 1-1.1 1.9-.2 3.2 1.1-1.9 3.1-2.8 1.2-4.2C12.2 4.5 13.4 3.8 12 3"/><path fill="#5382a1" d="M15.3 2.2c2.3 2-.5 3.2.2 4.4.6 1.1 2.1 1.5 1.4 3.4 2.1-2.2-.3-3.8.5-5.1.7-1.2-.3-2.1-2.1-2.7"/></svg>
+    case 'ruby': return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#cc342d" d="M4 3.5h9.8L21 9.9 12.6 21 3 15.5z"/><path fill="#fff" opacity=".86" d="m6.1 5.4 5.8.1-1.5 5.4zm7.8.2 3.8 4.2-5.3 1.1zm-3 6.4 5.2-1.1-3.8 5z"/></svg>
+    case 'php': return <svg viewBox="0 0 42 24" aria-hidden="true"><ellipse cx="21" cy="12" rx="19" ry="9" fill="#777bb3"/><text x="7" y="16" fill="#fff" fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">php</text></svg>
+    case 'csharp': case 'c#': return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#68217a" d="M12 2.3 21 7v10l-9 4.7L3 17V7z"/><text x="6.2" y="15.7" fill="#fff" fontSize="10" fontWeight="800" fontFamily="Arial, sans-serif">C#</text></svg>
+    case 'swift': return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#f05138" d="M20.8 15.4c.7-3.4-.8-7.2-4.2-10.4 1.1 2.1 1.5 4 1.2 5.7C15.1 8.7 11.2 6.1 6.6 4.4c3.2 2.6 5.5 5 6.7 7.1-2.8-.8-5.6-2.4-8.4-4.8 2.1 3.3 4.6 5.8 7.6 7.5-2.3.8-5 .5-8-.9 3.5 3.7 7.3 5.1 11.4 4.1 1.4 1 2.2 1.7 2.4 2.1 1.1-.9 2-2.3 2.5-4.1"/></svg>
+    case 'dart': return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#0175c2" d="M4 4h10.4L21 10.6V21H10.4L4 14.6z"/><path fill="#29b6f6" d="M4 4h6.4L21 14.6V21h-6.4L4 14.6z"/><path fill="#fff" d="m12.3 7.1 4.2 4.2-3.1.2 1.3 3-5-4.6 3-.2z"/></svg>
+    case 'elixir': return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#6e4a7e" d="M12 2c1.9 3.3 6.4 7.1 6.4 12.2A6.4 6.4 0 1 1 5.6 14.2C5.6 9.1 10.1 5.3 12 2"/><circle cx="9.5" cy="14" r="1" fill="#f4b942"/><circle cx="12" cy="16" r="1" fill="#f4b942"/><circle cx="14.5" cy="13.5" r="1" fill="#f4b942"/></svg>
+    case 'perl': return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#39457f"/><text x="7.2" y="16" fill="#fff" fontSize="11" fontWeight="800" fontFamily="Georgia, serif">P</text></svg>
+    case 'r': return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#276dc3"/><text x="6.8" y="16" fill="#fff" fontSize="12" fontWeight="800" fontFamily="Arial, sans-serif">R</text></svg>
+    case 'lua': return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="#000080"/><circle cx="15.5" cy="8.5" r="5" fill="var(--eco-bg, #fff)"/><path fill="#fff" d="M6 15.7h2.1l1.1-2.3 1.1 2.3h2.1l-2.1-3.6 2-3.3h-2l-1.1 2-1-2H6l2 3.3z"/></svg>
+    default: return <span aria-hidden="true">{fallback || '?'}</span>
+  }
 }
 
 export function EcoChip({ ecosystem }: { ecosystem: string }) {
@@ -101,7 +169,6 @@ export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
     close: <path d="m6 6 12 12M18 6 6 18"/>,
     plus: <path d="M12 5v14M5 12h14"/>,
     check: <path d="m5 12 4 4L19 6"/>,
-    gauge: <><path d="M4 15a8 8 0 1 1 16 0"/><path d="m12 15 4-6"/><path d="M6 19h12"/></>,
     alert: <><path d="M12 4 3 20h18L12 4Z"/><path d="M12 9v5M12 17h.01"/></>,
     chevron: <path d="m9 6 6 6-6 6"/>,
     search: <><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></>,
@@ -110,6 +177,12 @@ export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
     inbox: <><path d="M4 5h16v14H4z"/><path d="M4 14h5l2 2h2l2-2h5"/></>,
     folder: <><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z"/><path d="M3 9h18"/></>,
     file: <><path d="M7 3.5h7l5 5V20a1.5 1.5 0 0 1-1.5 1.5h-10.5A1.5 1.5 0 0 1 5.5 20V5A1.5 1.5 0 0 1 7 3.5Z"/><path d="M14 3.5V9h5"/></>,
+    maximize: <><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5"/><path d="m3 3 5 5M21 3l-5 5M3 21l5-5M21 21l-5-5"/></>,
+    minimize: <><path d="M8 3v5H3M16 3v5h5M8 21v-5H3M21 16h-5v5"/></>,
+    archive: <><path d="M4 7.5h16v12H4z"/><path d="M3 4.5h18v3H3zM9 12h6"/></>,
+    activity: <><path d="M3 12h4l2-6 4 12 2-6h6"/><circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/></>,
+    clock: <><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></>,
+    eye: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></>,
   }
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{paths[name]}</svg>
 }

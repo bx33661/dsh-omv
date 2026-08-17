@@ -106,13 +106,6 @@ export function checkStateIcon(value: EvidenceCheckState): IconName {
   return value === 'verified' || value === 'supported' || value === 'not_applicable' ? 'check' : 'alert'
 }
 
-export function scoreColor(value: number): string {
-  if (value >= 75) return 'var(--dsw-alias-state-success-primary, #1f9d63)'
-  if (value >= 50) return 'var(--omv-teal, #0d8f9e)'
-  if (value >= 25) return 'var(--dsw-alias-state-warn-primary, #b7791f)'
-  return 'var(--dsw-alias-state-error-primary, #d6433f)'
-}
-
 export function statusColor(value: string): string {
   if (value === 'confirmed' || value === 'report_ready' || value === 'disclosed' || value === 'active' || value === 'completed' || value === 'passed' || value === 'verified' || value === 'supported' || value === 'clear' || value === 'ready' || value === 'selected') return 'var(--dsw-alias-state-success-primary, #1f9d63)'
   if (value === 'candidate' || value === 'investigating' || value === 'running' || value === 'stopping' || value === 'dispatching' || value === 'reviewing' || value === 'draft' || value === 'proposed') return 'var(--dsw-alias-state-business-primary, #4d6bfe)'

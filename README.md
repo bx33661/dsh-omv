@@ -54,6 +54,16 @@ dsh plugin --profile web add .
 dsh --profile web
 ```
 
+For UI development, use a local link plus the bundle watcher so the Web profile's client-HMR chain can reload changes without a manual page refresh:
+
+```bash
+dsh plugin --profile web add link:.
+npm run dev
+dsh --profile web
+```
+
+Run `link:.` from this repository. The watcher rebuilds `lib/client.js` from `src/`; installing a packed `.tgz` is intended for distribution, not hot-reload development.
+
 The **Vulnerability audit** entry opens or reuses the configured DSH Workspace. Every session then exposes a **Vulnerability audit** tab beside Chat and Trajectory.
 
 ## Configure

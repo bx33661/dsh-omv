@@ -63,15 +63,23 @@ function KindGlyph({ kind, size = 13 }: { kind: EvidenceGraphNode['kind']; size?
 }
 
 export function EvidenceFlowCanvas({ graph, onOpenPath }: { graph: EvidenceGraph; onOpenPath?: (path: string) => void }) {
-  const layout = useMemo(() => layoutEvidenceGraph(graph), [graph])
-  const containerRef = useRef<HTMLDivElement>(null)
-  const canvas = useCanvasViewport(containerRef, layout.width, layout.height, 320, graph.generatedAt)
+  const [showSupporting, setShowSupporting] = useState(false)
   const [selected, setSelected] = useState<string>()
+  const visibleGraph = useMemo(() => {
+    if (showSupporting) return graph
+    const visibleIds = new Set(graph.nodes.filter(node => !['session', 'artifact'].includes(node.kind)).map(node => node.id))
+    return {
+      ...graph,
+      nodes: graph.nodes.filter(node => visibleIds.has(node.id)),
+      edges: graph.edges.filter(edge => visibleIds.has(edge.from) && visibleIds.has(edge.to)),
+    }
+  }, [graph, showSupporting])
+  const layout = useMemo(() => layoutEvidenceGraph(visibleGraph), [visibleGraph])
+  const containerRef = useRef<HTMLDivElement>(null)
+  const canvas = useCanvasViewport(containerRef, layout.width, layout.height, 320, `${graph.generatedAt}:${showSupporting ? 'all' : 'path'}`)
   const { viewport } = canvas
 
   const selectedNode = layout.nodes.find(item => item.node.id === selected)
-  const { nodeWidth, nodeHeight } = DEFAULT_GRAPH_LAYOUT
-
   return (
     <div className="omv-flow">
       <div className="omv-flow-toolbar">
@@ -83,6 +91,8 @@ export function EvidenceFlowCanvas({ graph, onOpenPath }: { graph: EvidenceGraph
           <span><i className="omv-flow-legend-dash" />未验证边</span>
         </div>
         <div className="omv-flow-zoom">
+          <button type="button" className="omv-flow-mode" aria-pressed={!showSupporting} onClick={() => { setShowSupporting(false); setSelected(undefined) }}>主路径</button>
+          <button type="button" className="omv-flow-mode" aria-pressed={showSupporting} onClick={() => setShowSupporting(true)}>全部证据 <small>{graph.nodes.length}</small></button>
           <button type="button" aria-label="缩小" onClick={() => canvas.zoomBy(1 / 1.25)}>−</button>
           <button type="button" aria-label="放大" onClick={() => canvas.zoomBy(1.25)}>＋</button>
           <button type="button" onClick={canvas.fit}>适配</button>
@@ -97,7 +107,7 @@ export function EvidenceFlowCanvas({ graph, onOpenPath }: { graph: EvidenceGraph
         onPointerUp={canvas.onPointerUp}
         onPointerCancel={canvas.onPointerCancel}
       >
-        <svg width={layout.width} height={layout.height} role="img" aria-label={`证据图谱：${graph.nodes.length} 节点`}>
+        <svg width={layout.width} height={layout.height} role="img" aria-label={`证据图谱：${visibleGraph.nodes.length} 节点`}>
           <defs>
             {(['strong', 'warn', 'teal', 'muted'] as const).map(tone => (
               <marker key={tone} id={`omv-arrow-${tone}`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -134,7 +144,7 @@ export function EvidenceFlowCanvas({ graph, onOpenPath }: { graph: EvidenceGraph
         </svg>
       </div>
       {selectedNode === undefined ? (
-        <div className="omv-flow-inspector omv-flow-inspector-empty">点击节点查看证据详情{onOpenPath === undefined ? '' : '；带文件角标的节点可打开源码'}</div>
+        <div className="omv-flow-inspector omv-flow-inspector-empty"><span>点击节点查看证据详情</span><small>{showSupporting ? '已显示全部证据' : `主路径 · ${visibleGraph.nodes.length}/${graph.nodes.length} 个节点`}{onOpenPath === undefined ? '' : ' · 带文件角标可打开源码'}</small></div>
       ) : (
         <div className="omv-flow-inspector">
           <span className="omv-flow-inspector-kind" style={{ background: kindStyle(selectedNode.node.kind).color }}>
@@ -176,6 +186,7 @@ function FlowNode({ item, selected, onSelect }: { item: LaidOutNode; selected: b
       onClick={onSelect}
       onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect() } }}
     >
+      <title>{`${style.label} · ${node.label}\n${node.value}${node.path === undefined ? '' : `\n${node.path}${node.line === undefined ? '' : `:${node.line}`}`}`}</title>
       <rect width={width} height={height} rx={9} />
       <rect width={4} height={height} rx={2} fill={style.color} />
       <g transform={`translate(14 ${height / 2 - 13})`} className="omv-flow-glyph" style={{ color: style.color }}><KindGlyph kind={node.kind} /></g>

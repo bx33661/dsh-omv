@@ -79,6 +79,16 @@ npm install
 npm run check
 ```
 
+开发 UI 时使用本地链接和 watcher，DSH Web 会通过 client-hmr 自动重载客户端 bundle：
+
+```bash
+dsh plugin --profile web add link:.
+npm run dev
+dsh --profile web
+```
+
+`link:.` 必须从本仓库目录执行；不要用 `npm pack` 生成的 tgz 做日常开发安装。`npm run dev` 会监听 `src/` 并重建 `lib/client.js`，修改后已打开的 DSH 页面会自动刷新插件 UI；React 组件状态会按 DSH HMR 规则重置。
+
 ## 安装到 DSH
 
 在本仓库目录运行：

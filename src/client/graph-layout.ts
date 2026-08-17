@@ -24,13 +24,17 @@ export const DEFAULT_GRAPH_LAYOUT: GraphLayoutOptions = {
   padding: 20,
 }
 
-/** Rendering order inside a column: the kill chain first, supporting facts after. */
+/**
+ * Rendering order inside a column. Keep the source → sink → guard chain on
+ * the same horizontal rail, then place claim → reproducer → observation below
+ * it. This avoids the two primary evidence paths crossing one another.
+ */
 const KIND_ORDER: Record<EvidenceGraphNode['kind'], number> = {
   finding: 0,
-  claim: 1,
-  source: 2,
-  sink: 3,
-  guard: 4,
+  source: 1,
+  sink: 2,
+  guard: 3,
+  claim: 4,
   reproducer: 5,
   observation: 6,
   session: 7,

@@ -100,7 +100,7 @@ dsh --profile web
 
 打开 DSH Web UI 后，侧栏底部会出现“漏洞审计”入口。点击后进入对应 DSH Workspace；打开任意会话即可在顶部切换到“漏洞审计”视图。
 
-在“战役”详情点击 **Seed 并运行 Campaign** 后，Runner 会按并发宽度 fork 当前 DSH 会话。每条 Lane 在独立会话中运行，并通过 `omv_campaign_lane_update` 回写结果；重新打开 DSH 后，已绑定会话和未完成队列会继续恢复。
+在“审计任务”详情点击 **Seed 并运行 Campaign** 后，Runner 会按并发宽度 fork 当前 DSH 会话。每条 Lane 在独立会话中运行，并通过 `omv_campaign_lane_update` 回写结果；重新打开 DSH 后，已绑定会话和未完成队列会继续恢复。
 
 也可以打包后安装：
 
@@ -170,7 +170,7 @@ export function apply(ctx: Context) {
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
 | `GET` | `/api/dsh-omv/health` | 插件与工作区根目录检查 |
-| `GET` | `/api/dsh-omv/dashboard` | 仪表盘、发现、战役与活动聚合 |
+| `GET` | `/api/dsh-omv/dashboard` | 仪表盘、发现、审计任务与活动聚合 |
 | `GET` | `/api/dsh-omv/finding?id=<id>` | 单条发现、原始证据、doctor 与 review |
 | `GET` | `/api/dsh-omv/campaign?id=<id>` | Campaign、lane、runbook 与会话编排历史 |
 | `GET` | `/api/dsh-omv/campaign-run?id=<id>` | Campaign Run 与 Lane/Session 状态 |

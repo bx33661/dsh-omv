@@ -193,7 +193,9 @@ export interface WarRoomLayout {
 export function layoutWarRoom(laneCount: number, padding = 20): WarRoomLayout {
   const count = Math.max(0, laneCount)
   const laneSpacing = WAR_ROOM_NODE.height + 16
-  const radiusX = 300
+  // A single lane is a direct hand-off, not a fan. Keep it close enough to
+  // the seed that the execution path reads as one compact operation.
+  const radiusX = count <= 1 ? 128 : count <= 3 ? 208 : 300
   // Even vertical spacing guarantees non-overlap; the x arc keeps the fan look.
   const height = Math.max(
     WAR_ROOM_NODE.height * 2 + padding * 2,

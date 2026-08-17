@@ -137,7 +137,7 @@ const STATUS_LABELS: Record<string, string> = {
   needs_attention: '需要处理',
   failed: '失败', awaiting_evidence: '待证据',
   passed: '通过',
-  finding: '发现', campaign: '战役', activity: '活动',
+  finding: '发现', campaign: '审计任务', activity: '活动',
   ready: '就绪', missing: '缺失', draft: '草稿', stale: '需刷新', partial: '部分支撑', supported: '已有支撑', verified: '已经验证', not_applicable: '暂不适用',
   unknown: '未知', clear: '已排除', possible_duplicate: '疑似重复', duplicate: '重复',
   blocker: '阻塞', warning: '提醒', info: '建议',

@@ -4,6 +4,7 @@ import {
   siDotnet,
   siElixir,
   siGo,
+  siGithub,
   siLua,
   siNpm,
   siOpenjdk,
@@ -48,6 +49,55 @@ export function Status({ value }: { value: string }) {
 export function EvidenceStatusLogo({ maturity }: { maturity: EvidenceAssessment['maturity'] }) {
   const label = maturity === 'verified' ? '已验证' : maturityLabel(maturity)
   return <span className="omv-evidence-status-logo" data-maturity={maturity} role="img" aria-label={`证据状态：${label}`} title={`证据状态：${label}`}><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" className="omv-evidence-logo-ring" /><circle cx="32" cy="32" r="22" className="omv-evidence-logo-disc" /><path d="M32 17.5 45 23v9.1c0 8.4-5.1 14.5-13 17.2-7.9-2.7-13-8.8-13-17.2V23l13-5.5Z" className="omv-evidence-logo-shield" /><path d="m25.5 32.5 4.2 4.2 8.8-9.1" className="omv-evidence-logo-check" /><path d="m48.5 12.5.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9.9-2.6Z" className="omv-evidence-logo-spark" /></svg></span>
+}
+
+export function DedupSourceLogo({ source, searched }: { source: string; searched: boolean }) {
+  const labels: Record<string, string> = {
+    nvd_searched: 'NVD',
+    ghsa_searched: 'GitHub Advisory Database',
+    ecosystem_db_searched: '生态数据库',
+    issues_searched: 'Issues 与 Pull Requests',
+    commits_searched: '代码提交记录',
+    blogs_searched: 'Web 与博客',
+  }
+  const label = labels[source] ?? '外部来源'
+  const common = { className: 'omv-dedup-source-mark', viewBox: '0 0 24 24', 'aria-hidden': true }
+  let mark: ReactNode
+  switch (source) {
+    case 'nvd_searched':
+      mark = <svg {...common}><path d="M12 3.2 19 6v5.2c0 4.1-2.6 7.4-7 9.6-4.4-2.2-7-5.5-7-9.6V6l7-2.8Z" /><path d="M9.2 10h5.6M9.2 13.2h5.6" /><path d="M8.8 16.2h6.4" /></svg>
+      break
+    case 'ghsa_searched':
+      mark = <svg {...common} viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d={siGithub.path} /></svg>
+      break
+    case 'ecosystem_db_searched':
+      mark = <svg {...common}><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></svg>
+      break
+    case 'issues_searched':
+      mark = <svg {...common}><path d="M7 6h10a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3H9l-4 3v-11a3 3 0 0 1 2-2.8" /><path d="M8 11h8M8 14h5" /></svg>
+      break
+    case 'commits_searched':
+      mark = <svg {...common}><circle cx="6" cy="6" r="2.2" /><circle cx="18" cy="12" r="2.2" /><circle cx="6" cy="18" r="2.2" /><path d="M8.2 6h3.2c2.2 0 2.2 6 4.4 6M8.2 18h3.2c2.2 0 2.2-6 4.4-6" /></svg>
+      break
+    case 'blogs_searched':
+      mark = <svg {...common}><circle cx="12" cy="12" r="8.5" /><path d="M3.8 12h16.4M12 3.5c2.2 2.4 3.4 5.2 3.4 8.5s-1.2 6.1-3.4 8.5c-2.2-2.4-3.4-5.2-3.4-8.5S9.8 5.9 12 3.5Z" /></svg>
+      break
+    default:
+      mark = <svg {...common}><circle cx="12" cy="12" r="8.5" /><path d="M8 12h8" /></svg>
+  }
+  return <span className="omv-dedup-source-logo" data-source={source} data-searched={searched || undefined} role="img" aria-label={`${label}：${searched ? '已检索' : '未检索'}`} title={`${label} · ${searched ? '已检索' : '未检索'}`}>{mark}</span>
+}
+
+export function PriorityIssueLogo({ severity }: { severity: string }) {
+  const kind = severity === 'blocker' || severity === 'error' ? 'blocker' : severity === 'warning' ? 'warning' : 'info'
+  const label = kind === 'blocker' ? '阻塞事项' : kind === 'warning' ? '提醒事项' : '建议事项'
+  const common = { className: 'omv-priority-issue-mark', viewBox: '0 0 24 24', 'aria-hidden': true }
+  const mark = kind === 'blocker'
+    ? <svg {...common}><path d="m12 3.4 7.2 4.2v8.8L12 20.6l-7.2-4.2V7.6L12 3.4Z" /><path d="M12 7.7v5.5M12 16.7h.01" /></svg>
+    : kind === 'warning'
+      ? <svg {...common}><circle cx="12" cy="12" r="8.4" /><path d="M12 7.5v5l3.2 2" /></svg>
+      : <svg {...common}><circle cx="12" cy="12" r="8.4" /><path d="M12 10.8v5M12 7.5h.01" /></svg>
+  return <span className="omv-priority-issue-logo" data-severity={kind} role="img" aria-label={label} title={label}>{mark}</span>
 }
 
 function statusIcon(value: string): IconName {

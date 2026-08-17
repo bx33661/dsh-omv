@@ -293,7 +293,7 @@ function AuditSettingsSection({ close, projectRoot, openWorkbench, openPath, set
         <div className="omv-settings-row"><span>当前发现</span><b>{dashboard?.metrics.active ?? '—'}</b></div>
         <div className="omv-settings-row"><span>Agent 能力</span><b>23 工具 · 20 命令</b></div>
         <div className="omv-settings-row"><span>默认视图</span><select className="omv-settings-select" value={defaultTab} onChange={event => { persistDefaultTab(settings, event.target.value as Tab) }}>
-          <option value="overview">总览</option><option value="findings">漏洞</option><option value="reproduction">复现</option><option value="campaigns">战役</option><option value="search">搜索</option>
+          <option value="overview">总览</option><option value="findings">漏洞</option><option value="reproduction">复现</option><option value="campaigns">审计任务</option><option value="search">搜索</option>
         </select></div>
       </section>
       <div className="omv-settings-actions">
@@ -324,6 +324,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
   const [detail, setDetail] = useState<FindingPayload>()
   const [detailExpanded, setDetailExpanded] = useState(false)
   const [campaignDetail, setCampaignDetail] = useState<CampaignPayload>()
+  const [campaignDetailExpanded, setCampaignDetailExpanded] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [dialog, setDialog] = useState<Dialog>(null)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
@@ -331,6 +332,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
   const detailRef = useRef<FindingPayload>()
   const campaignDetailRef = useRef<CampaignPayload>()
   const showCampaignRef = useRef<(id: string) => Promise<void>>(async () => {})
+  const focusReturnRef = useRef<HTMLElement>()
 
   const { dashboard, loading, error, refreshError, lastUpdated, reload, refreshQuietly, refreshForced } = useDashboard(projectRoot)
   const { anyBusy, isBusy, run } = useActionState()
@@ -345,6 +347,44 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
     persistDefaultTab(settings, next)
   }, [settings])
 
+  const captureOverlayFocus = useCallback(() => {
+    const active = document.activeElement
+    if (active instanceof HTMLElement && active !== document.body) focusReturnRef.current = active
+  }, [])
+  const restoreOverlayFocus = useCallback(() => {
+    const target = focusReturnRef.current
+    focusReturnRef.current = undefined
+    window.requestAnimationFrame(() => {
+      if (target !== undefined && document.contains(target)) target.focus()
+    })
+  }, [])
+  const openDialog = useCallback((next: Exclude<Dialog, null>) => {
+    if (!commandPaletteOpen && dialog === null) captureOverlayFocus()
+    setDialog(next)
+  }, [captureOverlayFocus, commandPaletteOpen, dialog])
+  const openCommandPalette = useCallback(() => {
+    captureOverlayFocus()
+    setCommandPaletteOpen(true)
+  }, [captureOverlayFocus])
+  const closeCommandPalette = useCallback(() => {
+    setCommandPaletteOpen(false)
+    if (dialog === null) restoreOverlayFocus()
+  }, [dialog, restoreOverlayFocus])
+  const closeDialog = useCallback(() => {
+    setDialog(null)
+    restoreOverlayFocus()
+  }, [restoreOverlayFocus])
+  const closeFinding = useCallback(() => {
+    setDetail(undefined)
+    setDetailExpanded(false)
+    restoreOverlayFocus()
+  }, [restoreOverlayFocus])
+  const closeCampaign = useCallback(() => {
+    setCampaignDetail(undefined)
+    setCampaignDetailExpanded(false)
+    restoreOverlayFocus()
+  }, [restoreOverlayFocus])
+
   useEffect(() => {
     if (toast === undefined) return
     const id = window.setTimeout(() => setToast(undefined), 3200)
@@ -353,7 +393,9 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
 
   const showFinding = useCallback(async (id: string, archived = false) => {
     // Stale-while-revalidate: keep the visible panel until fresh data lands.
+    captureOverlayFocus()
     setCampaignDetail(undefined)
+    setCampaignDetailExpanded(false)
     if (detailRef.current === undefined) setDetailExpanded(false)
     setDetailLoading(true)
     try {
@@ -364,10 +406,13 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
     } finally {
       setDetailLoading(false)
     }
-  }, [projectRoot])
+  }, [captureOverlayFocus, projectRoot])
 
   const showCampaign = useCallback(async (id: string) => {
+    captureOverlayFocus()
     setDetail(undefined)
+    setDetailExpanded(false)
+    setCampaignDetailExpanded(false)
     setDetailLoading(true)
     try {
       setCampaignDetail(await api<CampaignPayload>(`/campaign?id=${encodeURIComponent(id)}`, undefined, projectRoot))
@@ -376,7 +421,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
     } finally {
       setDetailLoading(false)
     }
-  }, [projectRoot])
+  }, [captureOverlayFocus, projectRoot])
   useEffect(() => { showCampaignRef.current = showCampaign }, [showCampaign])
   useEffect(() => { detailRef.current = detail }, [detail])
   useEffect(() => { campaignDetailRef.current = campaignDetail }, [campaignDetail])
@@ -408,7 +453,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        setCommandPaletteOpen(true)
+        openCommandPalette()
         return
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return
@@ -431,18 +476,18 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [reload, selectTab])
+  }, [openCommandPalette, reload, selectTab])
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
-      if (dialog !== null) setDialog(null)
-      else if (commandPaletteOpen) setCommandPaletteOpen(false)
-      else if (detail !== undefined) { setDetail(undefined); setDetailExpanded(false) }
-      else if (campaignDetail !== undefined) setCampaignDetail(undefined)
+      if (dialog !== null) closeDialog()
+      else if (commandPaletteOpen) closeCommandPalette()
+      else if (detail !== undefined) closeFinding()
+      else if (campaignDetail !== undefined) closeCampaign()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [campaignDetail, commandPaletteOpen, detail, dialog])
+  }, [campaignDetail, closeCampaign, closeCommandPalette, closeDialog, closeFinding, commandPaletteOpen, detail, dialog])
 
   const perform = useCallback(async (request: ActionRequest, successMessage: string) => {
     let ok = false
@@ -454,7 +499,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
         if (request.id !== undefined && detailRef.current?.detail.id === request.id && request.action !== 'finding.archive') {
           await showFinding(request.id)
         }
-        if (request.action === 'finding.archive') { setDetail(undefined); setDetailExpanded(false) }
+        if (request.action === 'finding.archive') closeFinding()
         const campaignId = campaignDetailRef.current?.campaign.id
         if (campaignId !== undefined && request.id === campaignId && request.action.startsWith('campaign.')) {
           await showCampaign(campaignId)
@@ -465,7 +510,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
       }
     })
     return ok
-  }, [projectRoot, refreshForced, run, showCampaign, showFinding])
+  }, [closeFinding, projectRoot, refreshForced, run, showCampaign, showFinding])
 
   const startWorkflow = useCallback(async (intent: WorkflowIntent) => {
     const finding = detailRef.current
@@ -510,7 +555,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
         await api('/action', { method: 'POST', body: JSON.stringify({ action: 'campaign.seed', id: campaignId, sessionId } satisfies ActionRequest) }, projectRoot)
         const created = await api<CampaignRun>('/action', { method: 'POST', body: JSON.stringify({ action: 'campaign.run.create', id: campaignId, sessionId, concurrency: dashboard?.config.campaignConcurrency ?? 3 } satisfies ActionRequest) }, projectRoot)
         campaignRunner.watch(created)
-        setToast({ kind: 'ok', message: `Campaign Runner 已启动：${created.lanes.length} 条 Lane · 并发 ${created.concurrency}` })
+        setToast({ kind: 'ok', message: `审计任务已启动：${created.lanes.length} 条 Lane · 并发 ${created.concurrency}` })
         await refreshForced()
         await showCampaign(campaignId)
         await campaignRunner.pump(created.id)
@@ -587,10 +632,10 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
             />
           ) : dashboard !== undefined ? (
             <>
-              {tab === 'overview' && <Overview data={dashboard} jobs={jobs} onRetryJob={job => { void retryJob(job) }} onTab={selectTab} onFinding={id => { void showFinding(id) }} onNew={() => setDialog('finding')} onOpenConfigured={openConfigured} />}
-              {tab === 'findings' && <Findings data={dashboard} onFinding={(id, archived) => { void showFinding(id, archived) }} onNew={() => setDialog('finding')} onOpenConfigured={openConfigured} />}
-              {tab === 'reproduction' && <ReproductionPage data={dashboard} onFinding={id => { void showFinding(id) }} onStart={id => { void startReproduction(id) }} />}
-              {tab === 'campaigns' && <Campaigns data={dashboard} busy={anyBusy} onCampaign={id => { void showCampaign(id) }} onNew={() => setDialog('campaign')} onRepair={id => { void perform({ action: 'campaign.repair', id }, 'Campaign 配置已修复') }} />}
+              {tab === 'overview' && <Overview data={dashboard} jobs={jobs} onRetryJob={job => { void retryJob(job) }} onTab={selectTab} onFinding={id => { void showFinding(id) }} onNew={() => openDialog('finding')} onOpenConfigured={openConfigured} />}
+              {tab === 'findings' && <Findings data={dashboard} onFinding={(id, archived) => { void showFinding(id, archived) }} onNew={() => openDialog('finding')} onOpenConfigured={openConfigured} />}
+              {tab === 'reproduction' && <ReproductionPage data={dashboard} onFinding={id => { void showFinding(id) }} onStart={id => { void startReproduction(id) }} onOpenSession={openLinkedSession} />}
+              {tab === 'campaigns' && <Campaigns data={dashboard} busy={anyBusy} onCampaign={id => { void showCampaign(id) }} onNew={() => openDialog('campaign')} onRepair={id => { void perform({ action: 'campaign.repair', id }, 'Campaign 配置已修复') }} />}
               {tab === 'search' && <SearchPage projectRoot={projectRoot} onFinding={(id, archived) => { void showFinding(id, archived) }} onCampaign={id => { void showCampaign(id) }} />}
             </>
           ) : null}
@@ -604,7 +649,7 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
         currentSessionId={sessionId}
         expanded={detailExpanded}
         onToggleExpand={() => setDetailExpanded(value => !value)}
-        onClose={() => { setDetail(undefined); setDetailExpanded(false) }}
+        onClose={closeFinding}
         onAction={(request, message) => { void perform({ ...request, sessionId }, message) }}
         onWorkflow={intent => { void startWorkflow(intent) }}
         onLink={() => { void linkCurrentSession() }}
@@ -614,10 +659,10 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
         onScanDedup={id => { void scanDedup(id) }}
         onUpdateDedup={(id, status, matchId) => { void updateDedup(id, status, matchId) }}
       />}
-      {campaignDetail !== undefined && <CampaignDetail payload={campaignDetail} busy={anyBusy} isBusy={isBusy} currentSessionId={sessionId} onClose={() => setCampaignDetail(undefined)} onStart={() => { void startCampaign(campaignDetail.campaign.id) }} onControl={(runId, control, laneId) => { void campaignRunner.control(runId, control, laneId) }} onOpenSession={openLinkedSession} onFinding={id => { void showFinding(id) }} onAction={(request, message) => { void perform({ ...request, sessionId }, message) }} />}
-      {dialog === 'finding' && <NewFindingDialog busy={anyBusy} onClose={() => setDialog(null)} onSubmit={async request => { if (await perform(request, '候选漏洞已创建')) setDialog(null) }} />}
-      {dialog === 'campaign' && <NewCampaignDialog busy={anyBusy} onClose={() => setDialog(null)} onSubmit={async request => { if (await perform(request, '审计战役已创建')) setDialog(null) }} />}
-      {commandPaletteOpen && <CommandPalette tab={tab} onTab={next => { selectTab(next); setCommandPaletteOpen(false) }} onNewFinding={() => { setDialog('finding'); setCommandPaletteOpen(false) }} onNewCampaign={() => { setDialog('campaign'); setCommandPaletteOpen(false) }} onClose={() => setCommandPaletteOpen(false)} />}
+      {campaignDetail !== undefined && <CampaignDetail payload={campaignDetail} busy={anyBusy} isBusy={isBusy} currentSessionId={sessionId} expanded={campaignDetailExpanded} onToggleExpand={() => setCampaignDetailExpanded(value => !value)} onClose={closeCampaign} onStart={() => { void startCampaign(campaignDetail.campaign.id) }} onControl={(runId, control, laneId) => { void campaignRunner.control(runId, control, laneId) }} onOpenSession={openLinkedSession} onFinding={id => { void showFinding(id) }} onAction={(request, message) => { void perform({ ...request, sessionId }, message) }} />}
+      {dialog === 'finding' && <NewFindingDialog busy={anyBusy} onClose={closeDialog} onSubmit={async request => { if (await perform(request, '候选漏洞已创建')) closeDialog() }} />}
+      {dialog === 'campaign' && <NewCampaignDialog busy={anyBusy} onClose={closeDialog} onSubmit={async request => { if (await perform(request, '审计任务已创建')) closeDialog() }} />}
+      {commandPaletteOpen && <CommandPalette tab={tab} onTab={next => { selectTab(next); closeCommandPalette() }} onNewFinding={() => { setDialog('finding'); setCommandPaletteOpen(false) }} onNewCampaign={() => { setDialog('campaign'); setCommandPaletteOpen(false) }} onClose={closeCommandPalette} />}
       {toast !== undefined && <div className="omv-toast" role={toast.kind === 'error' ? 'alert' : 'status'} data-kind={toast.kind === 'error' ? 'error' : undefined}><span>{toast.message}</span><button type="button" aria-label="关闭提示" onClick={() => setToast(undefined)}><Icon name="close" size={12} /></button></div>}
     </div>
   )
@@ -640,12 +685,12 @@ function AuditToolbar({ tab, dashboard, busy, live, jobs, lastUpdated, refreshEr
     { id: 'overview', label: '总览', icon: 'grid' },
     { id: 'findings', label: '漏洞', icon: 'finding', count: dashboard?.metrics.active },
     { id: 'reproduction', label: '复现', icon: 'pulse', count: dashboard?.metrics.activeReproductions },
-    { id: 'campaigns', label: '战役', icon: 'campaign', count: dashboard?.metrics.campaigns },
+    { id: 'campaigns', label: '审计任务', icon: 'campaign', count: dashboard?.metrics.campaigns },
     { id: 'search', label: '搜索', icon: 'search' },
   ]
   return (
     <div className="omv-native-toolbar">
-      <nav className="omv-nav" aria-label={`${OMV_DISPLAY_NAME}视图`} role="tablist">
+      <nav className="omv-nav" aria-label={`${OMV_DISPLAY_NAME}视图`} aria-orientation="horizontal" role="tablist">
         {items.map((item, index) => {
           const shortcut = String(index + 1)
           return <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} aria-controls="omv-workbench-panel" aria-keyshortcuts={shortcut} title={`${item.label}（快捷键 ${shortcut}）`} className="omv-nav-button" data-active={tab === item.id} onClick={() => onTab(item.id)}><Icon name={item.icon} size={13} /><span>{item.label}</span>{item.count !== undefined && <b className="omv-nav-count">{item.count}</b>}</button>

@@ -38,8 +38,9 @@ function laneStroke(status: string): string {
 
 export function CampaignWarRoom({ target, ecosystem, lanes, onControl, onOpenSession, onFinding }: CampaignWarRoomProps) {
   const layout = useMemo(() => layoutWarRoom(lanes.length), [lanes.length])
+  const viewHeight = Math.min(300, Math.max(210, layout.height + 24))
   const containerRef = useRef<HTMLDivElement>(null)
-  const canvas = useCanvasViewport(containerRef, layout.width, layout.height, 300, `${target}-${lanes.length}`)
+  const canvas = useCanvasViewport(containerRef, layout.width, layout.height, viewHeight, `${target}-${lanes.length}`)
   const [selected, setSelected] = useState<string>()
   const selectedLane = lanes.find(lane => lane.id === selected)
   const retryable = selectedLane !== undefined && ['failed', 'blocked', 'awaiting_evidence', 'cancelled'].includes(selectedLane.status)
@@ -62,13 +63,14 @@ export function CampaignWarRoom({ target, ecosystem, lanes, onControl, onOpenSes
       <div
         ref={containerRef}
         className="omv-war-canvas"
+        style={{ height: viewHeight }}
         onWheel={canvas.onWheel}
         onPointerDown={canvas.onPointerDown}
         onPointerMove={canvas.onPointerMove}
         onPointerUp={canvas.onPointerUp}
         onPointerCancel={canvas.onPointerCancel}
       >
-        <svg width={layout.width} height={layout.height} role="img" aria-label={`作战地图：${target} · ${lanes.length} 条审计 Lane`}>
+        <svg width="100%" height={viewHeight} viewBox={`0 0 ${canvas.viewWidth || layout.width} ${viewHeight}`} preserveAspectRatio="none" role="img" aria-label={`执行地图：${target} · ${lanes.length} 条审计 Lane`}>
           <defs>
             {lanes.map(lane => (
               <marker key={lane.id} id={`omv-war-arrow-${lane.id}`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">

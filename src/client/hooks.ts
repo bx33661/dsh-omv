@@ -288,6 +288,7 @@ export interface CanvasViewportState {
 
 export interface CanvasViewport {
   viewport: CanvasViewportState
+  viewWidth: number
   fit: () => void
   zoomBy: (factor: number) => void
   onWheel: (event: React.WheelEvent) => void
@@ -299,6 +300,7 @@ export interface CanvasViewport {
 
 const CANVAS_MIN_SCALE = 0.4
 const CANVAS_MAX_SCALE = 2.2
+const CANVAS_FIT_MAX_SCALE = 1.6
 
 function clampViewport(viewport: CanvasViewportState, viewWidth: number, viewHeight: number, contentWidth: number, contentHeight: number): CanvasViewportState {
   const margin = 12
@@ -326,12 +328,16 @@ export function useCanvasViewport(
   resetKey?: string,
 ): CanvasViewport {
   const [viewport, setViewport] = useState<CanvasViewportState>({ k: 1, tx: 0, ty: 0 })
+  const [viewWidth, setViewWidth] = useState(0)
   const dragRef = useRef<{ x: number; y: number; tx: number; ty: number } | undefined>(undefined)
 
   const fit = useCallback(() => {
     const width = containerRef.current?.clientWidth ?? 0
     if (width === 0) return
-    const k = Math.min(1.08, Math.max(CANVAS_MIN_SCALE, (width - 24) / contentWidth))
+    setViewWidth(previous => previous === width ? previous : width)
+    const widthScale = (width - 24) / contentWidth
+    const heightScale = (maxViewHeight - 24) / contentHeight
+    const k = Math.max(CANVAS_MIN_SCALE, Math.min(CANVAS_FIT_MAX_SCALE, widthScale, heightScale))
     setViewport(clampViewport({ k, tx: 0, ty: 0 }, width, maxViewHeight, contentWidth, contentHeight))
   }, [containerRef, contentHeight, contentWidth, maxViewHeight])
 
@@ -381,5 +387,5 @@ export function useCanvasViewport(
   const onPointerUp = useCallback(() => { dragRef.current = undefined }, [])
   const onPointerCancel = useCallback(() => { dragRef.current = undefined }, [])
 
-  return { viewport, fit, zoomBy, onWheel, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }
+  return { viewport, viewWidth, fit, zoomBy, onWheel, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }
 }

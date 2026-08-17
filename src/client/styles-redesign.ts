@@ -7,14 +7,18 @@
  * 3. 现代卡片设计 - 柔和阴影、圆角、悬浮效果
  * 4. 语义化颜色 - 每种颜色都有明确含义
  * 5. 流畅动画 - 微妙的过渡效果提升体验
+ *
+ * 作用域说明：所有规则都以 `.omv-page` 作为前缀，避免与 styles.ts 中仍在使用的
+ * 旧版共享组件（例如 ui.tsx 的 Metric / EmptyState）发生类名冲突。之前 `.omv-metric-icon`
+ * 等类未加作用域，导致重新设计版本的样式覆盖了 Reproduction 等页面里旧版组件的样式。
  */
 
 export const REDESIGNED_CSS = String.raw`
 /* ============================================================================
-   设计令牌 (Design Tokens)
+   设计令牌 (Design Tokens) —— 作用域限定在 .omv-page 内，不污染全局 :root
    ============================================================================ */
 
-:root {
+.omv-page {
   /* 间距系统 - 8px 网格 */
   --omv-space-1: 4px;
   --omv-space-2: 8px;
@@ -48,11 +52,13 @@ export const REDESIGNED_CSS = String.raw`
   --omv-green-100: #dcfce7;
   --omv-green-500: #22c55e;
   --omv-green-600: #16a34a;
+  --omv-green-700: #15803d;
 
   --omv-orange-50: #fff7ed;
   --omv-orange-100: #ffedd5;
   --omv-orange-500: #f97316;
   --omv-orange-600: #ea580c;
+  --omv-orange-700: #c2410c;
 
   --omv-red-50: #fef2f2;
   --omv-red-100: #fee2e2;
@@ -84,7 +90,7 @@ export const REDESIGNED_CSS = String.raw`
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  .omv-page {
     --omv-bg: #0a0a0b;
     --omv-surface: #18181b;
     --omv-text: #fafafa;
@@ -105,13 +111,13 @@ export const REDESIGNED_CSS = String.raw`
    ============================================================================ */
 
 .omv-page {
-  padding: var(--omv-space-6);
-  max-width: 1400px;
-  margin: 0 auto;
+  /* 外层 padding / max-width 由 shell 的 .omv-content / .omv-content-inner 负责，
+     这里不再重复设置，避免和旧版共享容器产生双重内边距。 */
+  color: var(--omv-text);
 }
 
 /* 页面头部 */
-.omv-page-header {
+.omv-page .omv-page-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -121,11 +127,11 @@ export const REDESIGNED_CSS = String.raw`
   border-bottom: 1px solid var(--omv-border);
 }
 
-.omv-page-header-content {
+.omv-page .omv-page-header-content {
   flex: 1;
 }
 
-.omv-page-title {
+.omv-page .omv-page-title {
   margin: 0;
   font-size: 32px;
   font-weight: 700;
@@ -134,14 +140,14 @@ export const REDESIGNED_CSS = String.raw`
   letter-spacing: -0.02em;
 }
 
-.omv-page-description {
+.omv-page .omv-page-description {
   margin: var(--omv-space-2) 0 0;
   font-size: 15px;
   line-height: 1.5;
   color: var(--omv-text-secondary);
 }
 
-.omv-page-actions {
+.omv-page .omv-page-actions {
   display: flex;
   gap: var(--omv-space-3);
   align-items: center;
@@ -151,7 +157,7 @@ export const REDESIGNED_CSS = String.raw`
    卡片组件
    ============================================================================ */
 
-.omv-card {
+.omv-page .omv-card {
   background: var(--omv-surface);
   border: 1px solid var(--omv-border);
   border-radius: var(--omv-radius-lg);
@@ -160,16 +166,16 @@ export const REDESIGNED_CSS = String.raw`
   transition: box-shadow var(--omv-transition), border-color var(--omv-transition);
 }
 
-.omv-card-primary {
+.omv-page .omv-card-primary {
   border-color: transparent;
   box-shadow: var(--omv-shadow-md);
 }
 
-.omv-card:hover {
+.omv-page .omv-card:hover {
   box-shadow: var(--omv-shadow-hover);
 }
 
-.omv-card-header {
+.omv-page .omv-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -178,11 +184,11 @@ export const REDESIGNED_CSS = String.raw`
   border-bottom: 1px solid var(--omv-border);
 }
 
-.omv-card-header-content {
+.omv-page .omv-card-header-content {
   flex: 1;
 }
 
-.omv-card-title {
+.omv-page .omv-card-title {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
@@ -190,7 +196,7 @@ export const REDESIGNED_CSS = String.raw`
   color: var(--omv-text);
 }
 
-.omv-card-title-sm {
+.omv-page .omv-card-title-sm {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
@@ -200,14 +206,14 @@ export const REDESIGNED_CSS = String.raw`
   letter-spacing: 0.05em;
 }
 
-.omv-card-subtitle {
+.omv-page .omv-card-subtitle {
   margin: var(--omv-space-1) 0 0;
   font-size: 13px;
   line-height: 1.4;
   color: var(--omv-text-muted);
 }
 
-.omv-card-body {
+.omv-page .omv-card-body {
   padding: var(--omv-space-5);
 }
 
@@ -215,14 +221,14 @@ export const REDESIGNED_CSS = String.raw`
    指标卡片网格
    ============================================================================ */
 
-.omv-metrics-grid {
+.omv-page .omv-metrics-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--omv-space-4);
   margin-bottom: var(--omv-space-6);
 }
 
-.omv-metric-card {
+.omv-page .omv-metric-card {
   display: flex;
   align-items: flex-start;
   gap: var(--omv-space-4);
@@ -235,50 +241,50 @@ export const REDESIGNED_CSS = String.raw`
   transition: all var(--omv-transition);
 }
 
-.omv-metric-card:hover {
+.omv-page .omv-metric-card:hover {
   border-color: var(--omv-border-hover);
   box-shadow: var(--omv-shadow-md);
   transform: translateY(-2px);
 }
 
-.omv-metric-card-blue {
+.omv-page .omv-metric-card-blue {
   background: linear-gradient(135deg, var(--omv-blue-50) 0%, var(--omv-surface) 100%);
   border-color: var(--omv-blue-100);
 }
 
-.omv-metric-card-green {
+.omv-page .omv-metric-card-green {
   background: linear-gradient(135deg, var(--omv-green-50) 0%, var(--omv-surface) 100%);
   border-color: var(--omv-green-100);
 }
 
-.omv-metric-card-orange {
+.omv-page .omv-metric-card-orange {
   background: linear-gradient(135deg, var(--omv-orange-50) 0%, var(--omv-surface) 100%);
   border-color: var(--omv-orange-100);
 }
 
-.omv-metric-card-teal {
+.omv-page .omv-metric-card-teal {
   background: linear-gradient(135deg, #f0fdfa 0%, var(--omv-surface) 100%);
   border-color: #ccfbf1;
 }
 
-.omv-metric-icon {
+.omv-page .omv-metric-card .omv-metric-icon {
   font-size: 28px;
   line-height: 1;
   opacity: 0.9;
 }
 
-.omv-metric-content {
+.omv-page .omv-metric-content {
   flex: 1;
 }
 
-.omv-metric-value {
+.omv-page .omv-metric-value {
   font-size: 28px;
   font-weight: 700;
   line-height: 1.2;
   color: var(--omv-text);
 }
 
-.omv-metric-label {
+.omv-page .omv-metric-label {
   margin-top: var(--omv-space-1);
   font-size: 13px;
   font-weight: 500;
@@ -286,7 +292,7 @@ export const REDESIGNED_CSS = String.raw`
   color: var(--omv-text-secondary);
 }
 
-.omv-metric-trend {
+.omv-page .omv-metric-trend {
   margin-top: var(--omv-space-1);
   font-size: 12px;
   line-height: 1.4;
@@ -297,7 +303,7 @@ export const REDESIGNED_CSS = String.raw`
    内容网格 (主内容 + 侧边栏)
    ============================================================================ */
 
-.omv-content-grid {
+.omv-page .omv-content-grid {
   display: grid;
   grid-template-columns: 1fr 320px;
   gap: var(--omv-space-5);
@@ -305,12 +311,12 @@ export const REDESIGNED_CSS = String.raw`
 }
 
 @media (max-width: 1024px) {
-  .omv-content-grid {
+  .omv-page .omv-content-grid {
     grid-template-columns: 1fr;
   }
 }
 
-.omv-sidebar {
+.omv-page .omv-sidebar {
   display: flex;
   flex-direction: column;
   gap: var(--omv-space-4);
@@ -322,7 +328,7 @@ export const REDESIGNED_CSS = String.raw`
    漏洞列表
    ============================================================================ */
 
-.omv-finding-list {
+.omv-page .omv-finding-list {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -331,7 +337,7 @@ export const REDESIGNED_CSS = String.raw`
   gap: var(--omv-space-3);
 }
 
-.omv-finding-item {
+.omv-page .omv-finding-item {
   padding: var(--omv-space-4);
   background: var(--omv-bg);
   border: 1px solid var(--omv-border);
@@ -340,14 +346,14 @@ export const REDESIGNED_CSS = String.raw`
   transition: all var(--omv-transition);
 }
 
-.omv-finding-item:hover {
+.omv-page .omv-finding-item:hover {
   border-color: var(--omv-border-hover);
   background: var(--omv-surface);
   box-shadow: var(--omv-shadow-sm);
   transform: translateX(4px);
 }
 
-.omv-finding-item-header {
+.omv-page .omv-finding-item-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -355,7 +361,7 @@ export const REDESIGNED_CSS = String.raw`
   margin-bottom: var(--omv-space-3);
 }
 
-.omv-finding-id {
+.omv-page .omv-finding-id {
   font-size: 11px;
   font-weight: 600;
   font-family: ui-monospace, monospace;
@@ -364,7 +370,7 @@ export const REDESIGNED_CSS = String.raw`
   letter-spacing: 0.05em;
 }
 
-.omv-finding-status {
+.omv-page .omv-finding-status {
   padding: var(--omv-space-1) var(--omv-space-2);
   font-size: 11px;
   font-weight: 500;
@@ -372,26 +378,26 @@ export const REDESIGNED_CSS = String.raw`
   text-transform: capitalize;
 }
 
-.omv-finding-status[data-status='candidate'] {
+.omv-page .omv-finding-status[data-status='candidate'] {
   background: var(--omv-blue-100);
   color: var(--omv-blue-700);
 }
 
-.omv-finding-status[data-status='proven'] {
+.omv-page .omv-finding-status[data-status='proven'] {
   background: var(--omv-green-100);
   color: var(--omv-green-700);
 }
 
-.omv-finding-status[data-status='blocked'] {
+.omv-page .omv-finding-status[data-status='blocked'] {
   background: var(--omv-orange-100);
   color: var(--omv-orange-700);
 }
 
-.omv-finding-item-body {
+.omv-page .omv-finding-item-body {
   margin-bottom: var(--omv-space-3);
 }
 
-.omv-finding-package {
+.omv-page .omv-finding-package {
   margin: 0 0 var(--omv-space-1);
   font-size: 15px;
   font-weight: 600;
@@ -399,34 +405,34 @@ export const REDESIGNED_CSS = String.raw`
   color: var(--omv-text);
 }
 
-.omv-finding-vuln {
+.omv-page .omv-finding-vuln {
   margin: 0;
   font-size: 13px;
   line-height: 1.5;
   color: var(--omv-text-secondary);
 }
 
-.omv-finding-item-footer {
+.omv-page .omv-finding-item-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--omv-space-3);
 }
 
-.omv-finding-next-action {
+.omv-page .omv-finding-next-action {
   font-size: 12px;
   font-weight: 500;
   color: var(--omv-blue-600);
 }
 
-.omv-finding-chevron {
+.omv-page .omv-finding-chevron {
   font-size: 14px;
   color: var(--omv-text-muted);
   opacity: 0;
   transition: opacity var(--omv-transition), transform var(--omv-transition);
 }
 
-.omv-finding-item:hover .omv-finding-chevron {
+.omv-page .omv-finding-item:hover .omv-finding-chevron {
   opacity: 1;
   transform: translateX(2px);
 }
@@ -435,7 +441,7 @@ export const REDESIGNED_CSS = String.raw`
    按钮系统
    ============================================================================ */
 
-.omv-btn {
+.omv-page .omv-btn {
   appearance: none;
   display: inline-flex;
   align-items: center;
@@ -453,55 +459,55 @@ export const REDESIGNED_CSS = String.raw`
   white-space: nowrap;
 }
 
-.omv-btn:disabled {
+.omv-page .omv-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.omv-btn-primary {
+.omv-page .omv-btn-primary {
   background: var(--omv-blue-600);
   color: white;
   box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
 }
 
-.omv-btn-primary:hover:not(:disabled) {
+.omv-page .omv-btn-primary:hover:not(:disabled) {
   background: var(--omv-blue-700);
   box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
   transform: translateY(-1px);
 }
 
-.omv-btn-primary:active:not(:disabled) {
+.omv-page .omv-btn-primary:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.omv-btn-secondary {
+.omv-page .omv-btn-secondary {
   background: var(--omv-surface);
   border-color: var(--omv-border);
   color: var(--omv-text);
 }
 
-.omv-btn-secondary:hover:not(:disabled) {
+.omv-page .omv-btn-secondary:hover:not(:disabled) {
   border-color: var(--omv-border-hover);
   background: var(--omv-bg);
 }
 
-.omv-btn-ghost {
+.omv-page .omv-btn-ghost {
   background: transparent;
   color: var(--omv-text-secondary);
 }
 
-.omv-btn-ghost:hover:not(:disabled) {
+.omv-page .omv-btn-ghost:hover:not(:disabled) {
   background: var(--omv-bg);
   color: var(--omv-text);
 }
 
-.omv-btn-sm {
+.omv-page .omv-btn-sm {
   height: 32px;
   padding: 0 var(--omv-space-3);
   font-size: 13px;
 }
 
-.omv-btn-icon {
+.omv-page .omv-btn-icon {
   font-size: 16px;
   line-height: 1;
 }
@@ -510,22 +516,22 @@ export const REDESIGNED_CSS = String.raw`
    态势图表
    ============================================================================ */
 
-.omv-posture-chart {
+.omv-page .omv-posture-chart {
   display: flex;
   flex-direction: column;
   gap: var(--omv-space-3);
 }
 
-.omv-posture-item {
+.omv-page .omv-posture-item {
   cursor: pointer;
   transition: transform var(--omv-transition);
 }
 
-.omv-posture-item:hover {
+.omv-page .omv-posture-item:hover {
   transform: translateX(2px);
 }
 
-.omv-posture-bar {
+.omv-page .omv-posture-bar {
   height: 8px;
   background: var(--omv-bg);
   border-radius: var(--omv-radius-sm);
@@ -533,26 +539,26 @@ export const REDESIGNED_CSS = String.raw`
   margin-bottom: var(--omv-space-2);
 }
 
-.omv-posture-fill {
+.omv-page .omv-posture-fill {
   height: 100%;
   border-radius: var(--omv-radius-sm);
   transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.omv-posture-meta {
+.omv-page .omv-posture-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--omv-space-2);
 }
 
-.omv-posture-label {
+.omv-page .omv-posture-label {
   font-size: 13px;
   font-weight: 500;
   color: var(--omv-text-secondary);
 }
 
-.omv-posture-value {
+.omv-page .omv-posture-value {
   font-size: 14px;
   font-weight: 600;
   color: var(--omv-text);
@@ -563,7 +569,7 @@ export const REDESIGNED_CSS = String.raw`
    活动时间线
    ============================================================================ */
 
-.omv-activity-list {
+.omv-page .omv-activity-list {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -572,12 +578,12 @@ export const REDESIGNED_CSS = String.raw`
   gap: var(--omv-space-4);
 }
 
-.omv-activity-item {
+.omv-page .omv-activity-item {
   position: relative;
   padding-left: var(--omv-space-5);
 }
 
-.omv-activity-dot {
+.omv-page .omv-activity-item .omv-activity-dot {
   position: absolute;
   left: 0;
   top: 4px;
@@ -588,7 +594,7 @@ export const REDESIGNED_CSS = String.raw`
   box-shadow: 0 0 0 3px var(--omv-blue-100);
 }
 
-.omv-activity-item:not(:last-child)::before {
+.omv-page .omv-activity-item:not(:last-child)::before {
   content: '';
   position: absolute;
   left: 3.5px;
@@ -598,14 +604,14 @@ export const REDESIGNED_CSS = String.raw`
   background: var(--omv-border);
 }
 
-.omv-activity-action {
+.omv-page .omv-activity-action {
   margin: 0 0 var(--omv-space-1);
   font-size: 13px;
   line-height: 1.5;
   color: var(--omv-text);
 }
 
-.omv-activity-time {
+.omv-page .omv-activity-time {
   margin: 0;
   font-size: 12px;
   line-height: 1.4;
@@ -616,19 +622,19 @@ export const REDESIGNED_CSS = String.raw`
    空状态
    ============================================================================ */
 
-.omv-empty-state {
+.omv-page .omv-empty-state {
   padding: var(--omv-space-8) var(--omv-space-5);
   text-align: center;
 }
 
-.omv-empty-icon {
+.omv-page .omv-empty-icon {
   font-size: 48px;
   line-height: 1;
   margin-bottom: var(--omv-space-4);
   opacity: 0.5;
 }
 
-.omv-empty-title {
+.omv-page .omv-empty-title {
   margin: 0 0 var(--omv-space-2);
   font-size: 16px;
   font-weight: 600;
@@ -636,14 +642,14 @@ export const REDESIGNED_CSS = String.raw`
   color: var(--omv-text);
 }
 
-.omv-empty-description {
+.omv-page .omv-empty-description {
   margin: 0 0 var(--omv-space-5);
   font-size: 14px;
   line-height: 1.5;
   color: var(--omv-text-secondary);
 }
 
-.omv-empty-state-sm {
+.omv-page .omv-empty-state-sm {
   padding: var(--omv-space-5);
   text-align: center;
   font-size: 13px;
@@ -654,13 +660,13 @@ export const REDESIGNED_CSS = String.raw`
    快速操作
    ============================================================================ */
 
-.omv-quick-actions {
+.omv-page .omv-quick-actions {
   display: flex;
   flex-direction: column;
   gap: var(--omv-space-2);
 }
 
-.omv-quick-action {
+.omv-page .omv-quick-action {
   appearance: none;
   display: flex;
   align-items: center;
@@ -673,18 +679,18 @@ export const REDESIGNED_CSS = String.raw`
   transition: all var(--omv-transition);
 }
 
-.omv-quick-action:hover {
+.omv-page .omv-quick-action:hover {
   border-color: var(--omv-border-hover);
   background: var(--omv-bg);
   transform: translateX(2px);
 }
 
-.omv-quick-action-icon {
+.omv-page .omv-quick-action-icon {
   font-size: 18px;
   line-height: 1;
 }
 
-.omv-quick-action-label {
+.omv-page .omv-quick-action-label {
   font-size: 14px;
   font-weight: 500;
   color: var(--omv-text);

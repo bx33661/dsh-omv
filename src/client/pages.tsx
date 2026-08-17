@@ -42,6 +42,7 @@ import {
 } from './runtime.js'
 import {
   ChainCard,
+  EcoChip,
   EcosystemAvatar,
   Empty,
   Field,
@@ -135,7 +136,7 @@ export function Overview({ data, jobs, onRetryJob, onTab, onFinding, onNew, onOp
       </div>
       <div className="omv-grid">
         <section className="omv-panel">
-          <div className="omv-panel-head"><div><h3>优先审计队列</h3><p>按证据成熟度、�����决问题和下一步动作排序</p></div><button type="button" className="omv-secondary" onClick={() => onTab('findings')}>全部发现</button></div>
+          <div className="omv-panel-head"><div><h3>优先审计队列</h3><p>按证据成熟度、待解决问题和下一步动作排序</p></div><button type="button" className="omv-secondary" onClick={() => onTab('findings')}>全部发现</button></div>
           {queue.length === 0 ? <Empty label="当前工作区还没有候选漏洞" description="从一个候选开始，Evidence.v1 会保留每一步研究上下文。" action={<button type="button" className="omv-secondary" onClick={onNew}><Icon name="plus" size={12} />创建候选</button>} /> : (
             <ul className="omv-queue">
               {queue.map(finding => (
@@ -192,25 +193,32 @@ export function Findings({ data, onFinding, onNew, onOpenConfigured }: {
           <option value="active">全部活跃</option><option value="candidate">候选</option><option value="investigating">调查中</option><option value="reproducing">复现中</option><option value="confirmed">已确认</option><option value="report_ready">可提交</option><option value="disclosed">已披露</option><option value="blocked">阻塞</option><option value="archived">已归档</option>
         </select>
       </div>
-      <div className="omv-table-wrap">
-        <table className="omv-table">
-          <thead><tr><th style={{ width: '25%' }}>发现</th><th style={{ width: '14%' }}>阶段</th><th style={{ width: '11%' }}>生态</th><th style={{ width: '17%' }}>证据状态</th><th>下一步</th></tr></thead>
-          <tbody>
+      <div className="omv-list-wrap">
+        <div className="omv-list-head" role="row"><span>发现</span><span>阶段</span><span>生态</span><span>证据状态</span><span>下一步</span></div>
+        {((status === 'archived' ? archived.length : active.length) === 0) ? (
+          <Empty label="没有匹配的漏洞发现" description={query === '' && status === 'active' ? '工作区中还没有活跃发现。' : '试试清空关键词或切换状态筛选。'} action={(query !== '' || status !== 'active') ? <button type="button" className="omv-secondary" onClick={() => { setQuery(''); setStatus('active') }}>清除筛选</button> : <button type="button" className="omv-primary" onClick={onNew}><Icon name="plus" size={12} />新建候选</button>} />
+        ) : (
+          <ul className="omv-finding-list">
             {status !== 'archived' && active.map(finding => (
-              <tr key={finding.id} tabIndex={0} role="link" aria-label={`打开 ${finding.id}`} onClick={() => onFinding(finding.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onFinding(finding.id) } }}>
-                <td data-stage={finding.stage}><div className="omv-finding-name"><EcosystemAvatar ecosystem={finding.ecosystem} /><div><strong>{finding.id}</strong><span>{finding.package} · {finding.vulnerability}</span></div></div></td>
-                <td><Status value={finding.stage} /></td><td>{finding.ecosystem}</td><td><Maturity assessment={finding.assessment} /></td><td className="omv-cell-mono">{finding.nextAction}</td>
-              </tr>
+              <li key={finding.id} className="omv-finding-row" data-stage={finding.stage} role="link" tabIndex={0} aria-label={`打开 ${finding.id}`} onClick={() => onFinding(finding.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onFinding(finding.id) } }}>
+                <div className="omv-finding-name"><EcosystemAvatar ecosystem={finding.ecosystem} size="lg" /><div><strong>{finding.id}</strong><span>{finding.package} · {finding.vulnerability}</span></div></div>
+                <Status value={finding.stage} />
+                <EcoChip ecosystem={finding.ecosystem} />
+                <Maturity assessment={finding.assessment} />
+                <code className="omv-cell-mono" title={finding.nextAction}>{finding.nextAction}</code>
+              </li>
             ))}
             {status === 'archived' && archived.map(finding => (
-              <tr key={finding.id} tabIndex={0} role="link" aria-label={`打开 ${finding.id}`} onClick={() => onFinding(finding.id, true)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onFinding(finding.id, true) } }}>
-                <td><div className="omv-finding-name"><EcosystemAvatar ecosystem={finding.ecosystem} /><div><strong>{finding.id}</strong><span>{finding.package} · {finding.vulnerability}</span></div></div></td>
-                <td><Status value="archived" /></td><td>{finding.ecosystem}</td><td><span className="omv-muted-copy">已归档</span></td><td className="omv-cell-mono">{finding.archiveReason}</td>
-              </tr>
+              <li key={finding.id} className="omv-finding-row" role="link" tabIndex={0} aria-label={`打开 ${finding.id}`} onClick={() => onFinding(finding.id, true)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onFinding(finding.id, true) } }}>
+                <div className="omv-finding-name"><EcosystemAvatar ecosystem={finding.ecosystem} size="lg" /><div><strong>{finding.id}</strong><span>{finding.package} · {finding.vulnerability}</span></div></div>
+                <Status value="archived" />
+                <EcoChip ecosystem={finding.ecosystem} />
+                <span className="omv-muted-copy">已归档</span>
+                <code className="omv-cell-mono" title={finding.archiveReason}>{finding.archiveReason}</code>
+              </li>
             ))}
-          </tbody>
-        </table>
-        {((status === 'archived' ? archived.length : active.length) === 0) && <Empty label="没有匹配的漏洞发现" description={query === '' && status === 'active' ? '工作区中还没有活跃发现。' : '试试清空关键词或切换状态筛选。'} action={(query !== '' || status !== 'active') ? <button type="button" className="omv-secondary" onClick={() => { setQuery(''); setStatus('active') }}>清除筛选</button> : <button type="button" className="omv-primary" onClick={onNew}><Icon name="plus" size={12} />新建候选</button>} />}
+          </ul>
+        )}
       </div>
     </>
   )
@@ -307,7 +315,7 @@ export function CampaignDetail({ payload, busy, isBusy, currentSessionId, onClos
         {startHint !== undefined && <p className="omv-hint-line" role="note">{startHint}</p>}
         <Section title="攻击面卡片" meta={hasCards ? `${surfaces.selected} 选用 · ${surfaces.proposed} 待定 · ${surfaces.skipped} 跳过` : '开题'}>
           {surfaces.issue !== undefined && <p className="omv-surface-issue">{surfaces.issue}</p>}
-          {!hasCards ? <Empty label="还没��攻��面卡片" description="先提出卡片，再选用 2–3 张未证实假说。选用不等于存在漏洞。" compact /> : (
+          {!hasCards ? <Empty label="还没有攻击面卡片" description="先提出卡片，再选用 2–3 张未证实假说。选用不等于存在漏洞。" compact /> : (
             <ul className="omv-surface-cards">{surfaces.cards.map(card => (
               <li key={card.id} className="omv-surface-card" data-status={card.status}>
                 <div className="omv-surface-card-head">
@@ -429,7 +437,7 @@ export function QualityPage({ data, onTab, onFinding, onOpenConfigured }: {
   const quality = data.quality
   const queues = [
     { id: 'evidence', label: '补齐证据', value: quality.queues.needsEvidence, tab: 'findings' as Tab, detail: '论证链仍有缺口的发现' },
-    { id: 'repro', label: '待复现', value: quality.queues.needsReproduction, tab: 'reproduction' as Tab, detail: '需要运��时验证的发现' },
+    { id: 'repro', label: '待复现', value: quality.queues.needsReproduction, tab: 'reproduction' as Tab, detail: '需要运行时验证的发现' },
     { id: 'dedup', label: '待去重', value: quality.queues.needsDedup, tab: 'findings' as Tab, detail: '尚未完成情报比对的发现' },
     { id: 'report', label: '报告就绪', value: quality.queues.reportReady, tab: 'findings' as Tab, detail: '报告材料已接近齐备' },
   ]

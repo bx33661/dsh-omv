@@ -271,7 +271,7 @@ export const WORKBENCH_CSS = String.raw`
 
 .omv-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, .7fr); gap: 12px; }
 .omv-side-stack { min-width: 0; display: grid; align-content: start; gap: 12px; }
-.omv-panel, .omv-table-wrap, .omv-campaign {
+.omv-panel, .omv-list-wrap, .omv-campaign {
   min-width: 0; border: 1px solid var(--omv-line); border-radius: var(--omv-radius-md); background: var(--omv-surface);
   box-shadow: var(--omv-shadow-xs); overflow: hidden;
 }
@@ -295,16 +295,48 @@ export const WORKBENCH_CSS = String.raw`
  td[data-stage='candidate']::before, td[data-stage='investigating']::before { --stage-line: var(--omv-violet); }
  td[data-stage='reproducing']::before { --stage-line: var(--omv-teal); }
  td[data-stage='blocked']::before { --stage-line: var(--omv-red); }
- .omv-finding-name { min-width: 0; padding-left: 4px; display: flex; align-items: center; gap: 10px; }
+ .omv-finding-name { min-width: 0; padding-left: 4px; display: flex; align-items: center; gap: 12px; }
 .omv-finding-name > div { min-width: 0; }
 .omv-finding-name strong { display: block; overflow: hidden; color: var(--omv-text); font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .omv-finding-name span { display: block; margin-top: 4px; overflow: hidden; color: var(--omv-faint); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .omv-eco-avatar {
   flex: none; display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; border-radius: var(--omv-radius-sm);
+  width: 30px; height: 30px; border-radius: 50%;
   background: color-mix(in srgb, var(--eco) 15%, transparent); color: var(--eco);
   font-size: 12.5px; font-weight: 650; text-transform: uppercase; font-variant-numeric: normal;
 }
+.omv-eco-avatar[data-size='lg'] { width: 40px; height: 40px; font-size: 14px; }
+.omv-eco-chip {
+  width: fit-content; padding: 3px 9px; border-radius: 999px; background: color-mix(in srgb, var(--eco) 12%, transparent);
+  color: var(--eco); font-size: 11px; font-weight: 600; text-transform: capitalize;
+}
+.omv-list-wrap {
+  min-width: 0; border: 1px solid var(--omv-line); border-radius: var(--omv-radius-md); background: var(--omv-surface);
+  box-shadow: var(--omv-shadow-xs); overflow: hidden;
+}
+.omv-list-head, .omv-finding-row {
+  display: grid; grid-template-columns: minmax(0, 1.6fr) 104px 96px minmax(0, .9fr) minmax(0, 1fr);
+  align-items: center; gap: 16px; padding: 0 20px;
+}
+.omv-list-head {
+  height: 44px; border-bottom: 1px solid var(--omv-line); color: var(--omv-faint);
+  font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  background: color-mix(in srgb, var(--omv-bg) 65%, var(--omv-surface));
+}
+.omv-finding-list { margin: 0; padding: 0; list-style: none; }
+.omv-finding-row { min-height: 72px; padding: 12px 20px; border-bottom: 1px solid var(--omv-line); cursor: pointer; position: relative; }
+.omv-finding-row:last-child { border-bottom: 0; }
+.omv-finding-row:hover { background: color-mix(in srgb, var(--omv-blue) 5%, var(--omv-surface)); }
+.omv-finding-row:focus-visible { outline: 2px solid color-mix(in srgb, var(--omv-blue) 60%, transparent); outline-offset: -2px; }
+.omv-finding-row::before {
+  content: ''; position: absolute; top: 10px; bottom: 10px; left: 0; width: 3px; border-radius: 0 2px 2px 0;
+  background: var(--stage-line, transparent);
+}
+.omv-finding-row[data-stage='confirmed']::before, .omv-finding-row[data-stage='report_ready']::before, .omv-finding-row[data-stage='disclosed']::before { --stage-line: var(--omv-green); }
+.omv-finding-row[data-stage='candidate']::before, .omv-finding-row[data-stage='investigating']::before { --stage-line: var(--omv-violet); }
+.omv-finding-row[data-stage='reproducing']::before { --stage-line: var(--omv-teal); }
+.omv-finding-row[data-stage='blocked']::before { --stage-line: var(--omv-red); }
+.omv-finding-row .omv-cell-mono { min-width: 0; overflow: hidden; color: var(--omv-faint); font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .omv-next { min-width: 0; overflow: hidden; color: var(--omv-muted); font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .omv-score { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 7px; color: var(--omv-muted); font-size: 11px; }
 .omv-score b { font-weight: 500; }
@@ -350,26 +382,18 @@ export const WORKBENCH_CSS = String.raw`
 @keyframes omv-pulse { 50% { opacity: .35; } }
 
 .omv-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.omv-search { position: relative; flex: 1; }
-.omv-search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--omv-faint); }
+ .omv-search { position: relative; flex: 1; }
+ .omv-search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--omv-faint); }
 .omv-input, .omv-select, .omv-textarea {
   width: 100%; border: 1px solid var(--omv-line); border-radius: 7px; outline: 0;
   background: var(--omv-surface); color: var(--omv-text);
 }
 .omv-input { height: 36px; padding: 0 11px; font-size: 12.5px; }
-.omv-search .omv-input { padding-left: 34px; }
+.omv-search .omv-input { border-radius: 999px; padding-left: 38px; }
 .omv-select { height: 36px; padding: 0 28px 0 11px; font-size: 12.5px; }
 .omv-textarea { min-height: 76px; padding: 9px 11px; resize: vertical; font-size: 12.5px; line-height: 1.5; }
 .omv-input::placeholder, .omv-textarea::placeholder { color: var(--omv-faint); }
 .omv-input:focus, .omv-select:focus, .omv-textarea:focus { border-color: var(--omv-blue); box-shadow: 0 0 0 2px color-mix(in srgb, var(--omv-blue) 14%, transparent); }
-.omv-table-wrap { overflow: auto; }
-.omv-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.omv-table th { height: 40px; padding: 0 12px; border-bottom: 1px solid var(--omv-line); color: var(--omv-faint); font-size: 11px; font-weight: 500; text-align: left; }
-.omv-table td { height: 56px; padding: 7px 12px; border-bottom: 1px solid var(--omv-line); color: var(--omv-muted); font-size: 12px; }
-.omv-table tr:last-child td { border-bottom: 0; }
-.omv-table tbody tr { cursor: pointer; }
-.omv-table tbody tr:hover { background: var(--omv-hover); }
-.omv-table .omv-cell-mono { overflow: hidden; color: var(--omv-faint); font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .omv-empty { min-height: 160px; padding: 28px; display: grid; place-items: center; color: var(--omv-faint); font-size: 13px; text-align: center; }
 .omv-empty > div { display: grid; justify-items: center; gap: 6px; max-width: 420px; }
 .omv-empty svg { display: block; margin: 0 auto 4px; color: var(--omv-blue); opacity: .72; }
@@ -837,7 +861,10 @@ button.omv-chain-card { cursor: pointer; }
   .omv-queue-row { grid-template-columns: 1fr 78px 16px; }
   .omv-next { display: none; }
   .omv-campaigns { grid-template-columns: 1fr; }
-  .omv-table th:nth-child(3), .omv-table td:nth-child(3), .omv-table th:nth-child(5), .omv-table td:nth-child(5) { display: none; }
+  .omv-list-head { grid-template-columns: minmax(0, 1.6fr) 104px minmax(0, .9fr); }
+  .omv-list-head > span:nth-child(3), .omv-list-head > span:nth-child(5) { display: none; }
+  .omv-finding-row { grid-template-columns: minmax(0, 1.6fr) 104px minmax(0, .9fr); }
+  .omv-finding-row > .omv-eco-chip, .omv-finding-row > code.omv-cell-mono { display: none; }
   .omv-form-grid { grid-template-columns: 1fr; }
   .omv-field-full { grid-column: auto; }
   .omv-chain { grid-template-columns: 1fr; gap: 7px; }
@@ -999,20 +1026,20 @@ button.omv-chain-card { cursor: pointer; }
 .omv-metric strong { margin-top: 12px; font-size: 30px; font-variant-numeric: tabular-nums; }
 .omv-metric-foot { margin-top: 10px; font-size: 12px; }
 .omv-grid { gap: 16px; }
-.omv-panel, .omv-table-wrap, .omv-campaign { border-radius: var(--omv-radius-md); box-shadow: var(--omv-shadow-xs); }
+.omv-panel, .omv-list-wrap, .omv-campaign { border-radius: var(--omv-radius-md); box-shadow: var(--omv-shadow-xs); }
 .omv-panel-head { min-height: 54px; padding: 0 18px; }
 .omv-panel-head h3 { font-size: 12.5px; letter-spacing: -.01em; }
 .omv-panel-head p { margin-top: 3px; font-size: 11px; }
 .omv-queue-row { min-height: 62px; padding: 9px 17px; transition: background-color .12s ease; }
-.omv-queue-row:hover, .omv-table tbody tr:hover, .omv-quality-issue[role='button']:hover { background: color-mix(in srgb, var(--omv-blue) 5%, var(--omv-surface)); }
+ .omv-queue-row:hover, .omv-quality-issue[role='button']:hover { background: color-mix(in srgb, var(--omv-blue) 5%, var(--omv-surface)); }
 .omv-finding-name strong { font-size: 12.5px; }
 .omv-finding-name span { margin-top: 3px; font-size: 11px; }
 .omv-status { padding: 4px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 600; letter-spacing: .01em; border: 1px solid color-mix(in srgb, var(--status) 22%, transparent); }
 .omv-toolbar { margin-bottom: 12px; }
 .omv-input, .omv-select, .omv-textarea { border-radius: 9px; box-shadow: inset 0 1px 1px rgba(18, 24, 40, .025); }
-.omv-table th { height: 42px; padding: 0 14px; background: color-mix(in srgb, var(--omv-bg) 75%, var(--omv-surface)); font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-.omv-table td { height: 60px; padding: 8px 14px; }
-.omv-table strong, .omv-quality-score strong, .omv-quality-counts b, .omv-campaign-summary strong, .omv-posture-score strong, .omv-quality-queue > strong { font-variant-numeric: tabular-nums; }
+ .omv-list-head { height: 42px; padding: 0 20px; background: color-mix(in srgb, var(--omv-bg) 75%, var(--omv-surface)); }
+ .omv-finding-row { padding: 12px 20px; }
+ .omv-finding-row strong, .omv-quality-score strong, .omv-quality-counts b, .omv-campaign-summary strong, .omv-posture-score strong, .omv-quality-queue > strong { font-variant-numeric: tabular-nums; }
 .omv-campaigns { gap: 12px; }
   .omv-campaign { position: relative; padding: 18px; overflow: hidden; border-radius: var(--omv-radius-md); transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
   .omv-campaign::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--status-line, var(--omv-violet)); opacity: .75; }

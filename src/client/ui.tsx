@@ -6,6 +6,7 @@ import {
   checkStateIcon,
   confidenceLabel,
   displayValue,
+  ecosystemColor,
   maturityLabel,
   scoreColor,
   statusColor,
@@ -42,6 +43,11 @@ export function Maturity({ assessment, compact = false }: { assessment: Evidence
 export function Status({ value }: { value: string }) {
   const color = statusColor(value)
   return <span className="omv-status" style={{ '--status': color } as CSSProperties} aria-label={`状态：${statusLabel(value)}`}>{statusLabel(value)}</span>
+}
+
+export function EcosystemAvatar({ ecosystem }: { ecosystem: string }) {
+  const color = ecosystemColor(ecosystem)
+  return <span className="omv-eco-avatar" style={{ '--eco': color } as CSSProperties} aria-hidden="true">{ecosystem.charAt(0).toUpperCase()}</span>
 }
 
 export function Section({ title, meta, children }: { title: string; meta: string; children: ReactNode }) {

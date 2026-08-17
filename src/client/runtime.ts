@@ -194,7 +194,15 @@ export function activityColor(action: string): string {
 
 export function activityLabel(action: string): string {
   return action.split('.').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-}
+  }
+
+const ECOSYSTEM_PALETTE = ['var(--omv-violet, #6a3df5)', 'var(--omv-teal, #12a594)', 'var(--dsw-alias-state-success-primary, #1f9d63)', 'var(--dsw-alias-state-warn-primary, #b7791f)']
+
+export function ecosystemColor(ecosystem: string): string {
+  let hash = 0
+  for (let index = 0; index < ecosystem.length; index += 1) hash = (hash * 31 + ecosystem.charCodeAt(index)) >>> 0
+  return ECOSYSTEM_PALETTE[hash % ECOSYSTEM_PALETTE.length] ?? ECOSYSTEM_PALETTE[0]!
+  }
 
 export function formatTime(value: string): string {
   const date = new Date(value)

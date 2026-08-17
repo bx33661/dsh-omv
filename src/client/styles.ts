@@ -295,9 +295,16 @@ export const WORKBENCH_CSS = String.raw`
  td[data-stage='candidate']::before, td[data-stage='investigating']::before { --stage-line: var(--omv-violet); }
  td[data-stage='reproducing']::before { --stage-line: var(--omv-teal); }
  td[data-stage='blocked']::before { --stage-line: var(--omv-red); }
- .omv-finding-name { min-width: 0; padding-left: 4px; }
+ .omv-finding-name { min-width: 0; padding-left: 4px; display: flex; align-items: center; gap: 10px; }
+.omv-finding-name > div { min-width: 0; }
 .omv-finding-name strong { display: block; overflow: hidden; color: var(--omv-text); font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .omv-finding-name span { display: block; margin-top: 4px; overflow: hidden; color: var(--omv-faint); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.omv-eco-avatar {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: var(--omv-radius-sm);
+  background: color-mix(in srgb, var(--eco) 15%, transparent); color: var(--eco);
+  font-size: 12.5px; font-weight: 650; text-transform: uppercase; font-variant-numeric: normal;
+}
 .omv-next { min-width: 0; overflow: hidden; color: var(--omv-muted); font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .omv-score { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 7px; color: var(--omv-muted); font-size: 11px; }
 .omv-score b { font-weight: 500; }

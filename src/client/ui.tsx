@@ -6,7 +6,6 @@ import {
   checkStateIcon,
   confidenceLabel,
   displayValue,
-  ecosystemColor,
   maturityLabel,
   scoreColor,
   statusColor,
@@ -24,7 +23,7 @@ export function Metric({ label, value, foot, icon, color }: { label: string; val
 export function Posture({ data }: { data: DashboardPayload }) {
   const maturity = data.metrics.evidenceMaturity
   const needsWork = maturity.unmapped + maturity.developing + maturity.contested
-  return <section className="omv-panel"><div className="omv-panel-head"><div><h3>证据态势</h3><p>按论证成熟度分布，不再求平均分</p></div></div><div className="omv-posture"><div className="omv-posture-score"><strong>{maturity.verified + maturity.supported}</strong><span>条发现已有支撑性证据</span></div><div className="omv-legend"><Legend color="var(--dsw-alias-state-success-primary, #329568)" label="已经验证" value={maturity.verified} /><Legend color="var(--omv-teal)" label="证据支撑" value={maturity.supported} /><Legend color="var(--dsw-alias-state-warn-primary, #b7791f)" label="正在成形" value={maturity.developing} /><Legend color="var(--dsw-alias-label-tertiary, #8b8f98)" label="尚未映射" value={maturity.unmapped} /><Legend color="var(--dsw-alias-state-error-primary, #d44c4c)" label="存在争议" value={maturity.contested} /></div><div className="omv-alert">{needsWork > 0 ? `${needsWork} 条发现需要补证或澄清边界；候选状态不会因报告材料未齐被判作低完成度。` : '当前活跃发现均已形成支撑性证据。'}</div></div></section>
+  return <section className="omv-panel"><div className="omv-panel-head"><div><h3>证据态势</h3><p>按论证成熟度分布，不再求平均分</p></div></div><div className="omv-posture"><div className="omv-posture-score"><strong>{maturity.verified + maturity.supported}</strong><span>条发现已有支撑性证据</span></div><div className="omv-legend"><Legend color="var(--dsw-alias-state-success-primary, #329568)" label="已经验证" value={maturity.verified} /><Legend color="var(--dsw-alias-state-business-primary, #4d6bfe)" label="证据支撑" value={maturity.supported} /><Legend color="var(--dsw-alias-state-warn-primary, #b7791f)" label="正在成形" value={maturity.developing} /><Legend color="var(--dsw-alias-label-tertiary, #8b8f98)" label="尚未映射" value={maturity.unmapped} /><Legend color="var(--dsw-alias-state-error-primary, #d44c4c)" label="存在争议" value={maturity.contested} /></div><div className="omv-alert">{needsWork > 0 ? `${needsWork} 条发现需要补证或澄清边界；候选状态不会因报告材料未齐被判作低完成度。` : '当前活跃发现均已形成支撑性证据。'}</div></div></section>
 }
 
 export function Legend({ color, label, value }: { color: string; label: string; value: number }) {
@@ -46,13 +45,11 @@ export function Status({ value }: { value: string }) {
 }
 
 export function EcosystemAvatar({ ecosystem, size = 'md' }: { ecosystem: string; size?: 'md' | 'lg' }) {
-  const color = ecosystemColor(ecosystem)
-  return <span className="omv-eco-avatar" data-size={size} style={{ '--eco': color } as CSSProperties} aria-hidden="true">{ecosystem.charAt(0).toUpperCase()}</span>
+  return <span className="omv-eco-avatar" data-size={size} aria-hidden="true">{ecosystem.charAt(0).toUpperCase()}</span>
 }
 
 export function EcoChip({ ecosystem }: { ecosystem: string }) {
-  const color = ecosystemColor(ecosystem)
-  return <span className="omv-eco-chip" style={{ '--eco': color } as CSSProperties}>{ecosystem}</span>
+  return <span className="omv-eco-chip">{ecosystem}</span>
 }
 
 export function Section({ title, meta, children }: { title: string; meta: string; children: ReactNode }) {

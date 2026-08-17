@@ -121,7 +121,7 @@ export function Overview({ data, jobs, onRetryJob, onTab, onFinding, onNew, onOp
       />
       {data.workspaceIssues.length > 0 && <WorkspaceIssuesNotice issues={data.workspaceIssues} onTab={onTab} onOpenConfigured={onOpenConfigured} />}
   {data.campaignIssues.length > 0 && <button type="button" className="omv-campaign-notice" onClick={() => onTab('campaigns')}><Icon name="alert" size={13} /><span><strong>{data.campaignIssues.length} 份 Campaign 配置需要处理</strong><small>其余审计数据已正常加载</small></span><Icon name="chevron" size={13} /></button>}
-  <div className="omv-readiness-strip omv-dotgrid">
+  <div className="omv-readiness-strip">
   <div className="omv-readiness-ring" style={{ '--pct': metrics.averageReadiness } as CSSProperties}><b>{metrics.averageReadiness}%</b></div>
   <div className="omv-readiness-copy"><span>态势就绪度</span><strong>{metrics.averageReadiness >= 70 ? '多数发现已具备提交条件' : metrics.averageReadiness >= 40 ? '部分发现仍需补充证据' : '证据链尚在建立阶段'}</strong></div>
   <Legend color="var(--omv-green)" label="已验证" value={metrics.evidenceMaturity.verified} />

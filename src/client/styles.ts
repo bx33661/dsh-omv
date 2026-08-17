@@ -430,11 +430,11 @@ export const WORKBENCH_CSS = String.raw`
   .omv-detail-backdrop, .omv-detail { animation: none !important; }
 }
 .omv-detail-backdrop {
-  position: absolute; inset: 0; z-index: 5; overflow: auto;
+  position: fixed; inset: 0; z-index: 5; overflow: auto;
   background: rgba(10, 12, 20, .5); backdrop-filter: blur(3px);
   display: flex; align-items: center; justify-content: center; padding: 32px;
   animation: omv-fade-in .16s ease both;
-}
+  }
 .omv-detail {
   /* Height is capped against the panel's own box (100%), not vh: vh resolves to the whole
      browser window, which is taller than this panel once the host chat composer/task bar
@@ -1016,15 +1016,7 @@ button.omv-chain-card { cursor: pointer; }
 .omv-posture-score strong { font-size: 30px; letter-spacing: -.04em; }
 .omv-posture-track i, .omv-score-track i { transition: width .45s cubic-bezier(.22, .61, .36, 1); }
  .omv-quality-hero, .omv-quality-queues { border-radius: var(--omv-radius-md); box-shadow: var(--omv-shadow-xs); }
- .omv-quality-hero {
-  position: relative; overflow: hidden; border-color: var(--omv-line);
-  background: radial-gradient(circle at 8% 20%, color-mix(in srgb, var(--omv-violet) 10%, transparent), transparent 55%), var(--omv-surface);
- }
- .omv-quality-hero::after {
-  content: ''; position: absolute; top: -30%; right: -8%; width: 200px; height: 200px; border-radius: 50%;
-  background: var(--omv-signal); opacity: .12; filter: blur(2px); pointer-events: none;
- }
- .omv-quality-hero > * { position: relative; z-index: 1; }
+ .omv-quality-hero { border-color: var(--omv-line); background: var(--omv-surface); }
 .omv-quality-score strong { font-size: 30px; letter-spacing: -.05em; }
 .omv-quality-queue { min-height: 108px; border-radius: var(--omv-radius-sm); background: var(--omv-surface); transition: background .16s ease, border-color .16s ease; }
 .omv-quality-queue:hover { transform: none; border-color: var(--omv-line); background: var(--omv-hover); }

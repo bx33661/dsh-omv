@@ -115,7 +115,7 @@ export function scoreColor(value: number): string {
 
 export function statusColor(value: string): string {
   if (value === 'confirmed' || value === 'report_ready' || value === 'disclosed' || value === 'active' || value === 'completed' || value === 'passed' || value === 'verified' || value === 'supported' || value === 'clear' || value === 'ready' || value === 'selected') return 'var(--dsw-alias-state-success-primary, #1f9d63)'
-  if (value === 'candidate' || value === 'investigating' || value === 'running' || value === 'stopping' || value === 'dispatching' || value === 'reviewing' || value === 'draft' || value === 'proposed') return 'var(--omv-violet, #6a3df5)'
+  if (value === 'candidate' || value === 'investigating' || value === 'running' || value === 'stopping' || value === 'dispatching' || value === 'reviewing' || value === 'draft' || value === 'proposed') return 'var(--dsw-alias-state-business-primary, #4d6bfe)'
   if (value === 'reproducing' || value === 'queued' || value === 'pending' || value === 'paused' || value === 'awaiting_evidence' || value === 'partial' || value === 'needs_attention' || value === 'possible_duplicate' || value === 'stale' || value === 'warning' || value === 'info') return 'var(--dsw-alias-state-warn-primary, #b7791f)'
   if (value === 'blocked' || value === 'failed' || value === 'cancelled' || value === 'duplicate' || value === 'blocker') return 'var(--dsw-alias-state-error-primary, #d6433f)'
   return 'var(--dsw-alias-label-tertiary, #8b8f98)'
@@ -189,19 +189,11 @@ export function workflowLabel(intent: WorkflowIntent): string {
 export function activityColor(action: string): string {
   if (action.includes('archive') || action.includes('delete')) return 'var(--dsw-alias-state-error-primary, #d6433f)'
   if (action.includes('promote') || action.includes('restore')) return 'var(--dsw-alias-state-success-primary, #1f9d63)'
-  return 'var(--omv-violet, #6a3df5)'
+  return 'var(--dsw-alias-state-business-primary, #4d6bfe)'
 }
 
 export function activityLabel(action: string): string {
   return action.split('.').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-  }
-
-const ECOSYSTEM_PALETTE = ['var(--omv-violet, #6a3df5)', 'var(--omv-teal, #12a594)', 'var(--dsw-alias-state-success-primary, #1f9d63)', 'var(--dsw-alias-state-warn-primary, #b7791f)']
-
-export function ecosystemColor(ecosystem: string): string {
-  let hash = 0
-  for (let index = 0; index < ecosystem.length; index += 1) hash = (hash * 31 + ecosystem.charCodeAt(index)) >>> 0
-  return ECOSYSTEM_PALETTE[hash % ECOSYSTEM_PALETTE.length] ?? ECOSYSTEM_PALETTE[0]!
   }
 
 export function formatTime(value: string): string {

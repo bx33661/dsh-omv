@@ -6,6 +6,10 @@ coverage/
 
 # Local OMV workspaces and reference checkout
 .omv/
+deepseek-harness/
+
+# Local continuation state and internal planning notes
+.local-docs/
 ohmyvul/
 
 # Local tooling and generated captures

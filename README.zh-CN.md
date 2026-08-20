@@ -2,6 +2,11 @@
 
 `OMV 审计台` 是面向 [DeepSeek Harness](https://deepseek-harness.github.io/deepseek-harness/develop/basic/) 的证据优先漏洞审计工作台，包名保持为 `dsh-omv` 以兼容现有安装。它复用 `oh-my-vul` 的 Evidence.v1、Campaign.v1、工作区索引和发现生命周期，并直接进入 DSH 的工作区、会话、命令、工具、Composer 与设置体系，不再运行一套独立的插件外壳。
 
+<p align="center">
+  <img src="./omv-audit-desk-overview.png" alt="OMV 审计台完整工作台概览" width="960">
+</p>
+<p align="center"><sub>完整审计台概览：工作区总览、漏洞发现、复现、证据图与 PoC 实验室。</sub></p>
+
 ## 能力
 
 - **风险态势总览**：活跃发现、确认数，以及“尚未映射 / 正在成形 / 证据支撑 / 已经验证 / 存在争议”的证据分布；不再用平均完成度概括不同阶段的研究。
@@ -65,7 +70,7 @@ flowchart LR
 - `lib/client.js`：通过 `dsh.client` manifest 加载的浏览器 bundle，注册 `conversation.view`、`conversation.session.header.actions`、`conversation.composer.dock`、`conversation.chat.commandview`、`settings.section` 和侧栏入口。
 - `cordis.patch.yml`：通过 `dsh.bundle.patch` 安装进 profile 的配置层。
 
-官方开发指南与本实现的逐项映射、维护规则和后续迭代见 [`docs/dsh-integration.md`](./docs/dsh-integration.md)。
+官方开发指南与本实现的逐项映射、维护规则和后续迭代见 [`DSH-INTEGRATION.md`](./DSH-INTEGRATION.md)。
 
 ## 环境要求
 
@@ -236,4 +241,4 @@ MIT
 
 ## 项目结构
 
-源码按 Host、Client 页面、原子 UI、运行时适配和协议类型拆分，测试集中在独立的 `tests/` 目录，结构说明见 [`docs/architecture.md`](./docs/architecture.md)。仓库只保留一张工作台概览图：[`docs/assets/workbench-overview.png`](./docs/assets/workbench-overview.png)。构建产物、压缩包、本地 `.omv` 数据和测试日志均由 `.gitignore` 排除。
+源码按 Host、Client 页面、原子 UI、运行时适配和协议类型拆分，测试集中在独立的 `tests/` 目录，结构说明见 [`ARCHITECTURE.md`](./ARCHITECTURE.md)。仓库保留完整审计台概览图 [`omv-audit-desk-overview.png`](./omv-audit-desk-overview.png)。构建产物、压缩包、本地 `.omv` 数据、会话续接状态和内部计划均由 `.gitignore` 排除。

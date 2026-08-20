@@ -16,7 +16,9 @@
   "files": [
     "lib/",
     "contracts/",
-    "docs/",
+    "ARCHITECTURE.md",
+    "DSH-INTEGRATION.md",
+    "omv-audit-desk-overview.png",
     "cordis.patch.yml",
     "README.md",
     "README.zh-CN.md",

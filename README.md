@@ -6,11 +6,12 @@ An evidence-first vulnerability audit workbench for [DeepSeek Harness](https://d
 [![Node.js 22+](https://img.shields.io/badge/node.js-22%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2563eb.svg)](./LICENSE)
 
-[中文文档](./README.zh-CN.md) · [Architecture](./docs/architecture.md) · [DSH integration guide](./docs/dsh-integration.md)
+[中文文档](./README.zh-CN.md) · [Architecture](./ARCHITECTURE.md) · [DSH integration guide](./DSH-INTEGRATION.md)
 
 <p align="center">
-  <img src="./docs/assets/workbench-overview.png" alt="OMV Audit Desk workbench" width="960">
+  <img src="./omv-audit-desk-overview.png" alt="OMV Audit Desk full workbench overview" width="960">
 </p>
+<p align="center"><sub>Full audit desk overview: workspace summary, findings, reproduction, evidence graph, and PoC lab.</sub></p>
 
 `OMV Audit Desk` is the product name; `dsh-omv` remains the package id for upgrade compatibility. It is a dual-face, native DSH bundle:
 
@@ -145,7 +146,7 @@ export function apply(ctx: Context) {
 ```
 
 See [README.zh-CN.md](./README.zh-CN.md) for architecture, API, packaging, and configuration details.
-The implementation-to-guide checklist and follow-up iterations live in [docs/dsh-integration.md](./docs/dsh-integration.md).
+The implementation-to-guide checklist and follow-up iterations live in [DSH-INTEGRATION.md](./DSH-INTEGRATION.md).
 
 ## License
 
@@ -154,4 +155,4 @@ MIT
 
 ## Project structure
 
-The source is split across the DSH host entry, client pages, UI primitives, runtime adapters, and shared contracts; all tests live under `tests/`. See [`docs/architecture.md`](./docs/architecture.md). The repository keeps one curated workbench preview at [`docs/assets/workbench-overview.png`](./docs/assets/workbench-overview.png); build archives, local `.omv` data, and test captures are ignored.
+The source is split across the DSH host entry, client pages, UI primitives, runtime adapters, and shared contracts; all tests live under `tests/`. See [`ARCHITECTURE.md`](./ARCHITECTURE.md). The repository keeps the full audit desk overview at [`omv-audit-desk-overview.png`](./omv-audit-desk-overview.png); build archives, local `.omv` data, continuation state, and internal planning notes are ignored.

@@ -493,10 +493,10 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
         await api('/action', { method: 'POST', body: JSON.stringify(request) }, projectRoot)
         setToast({ kind: 'ok', message: successMessage })
         await refreshForced()
-        if (request.id !== undefined && detailRef.current?.detail.id === request.id && request.action !== 'finding.archive') {
+        if (request.id !== undefined && detailRef.current?.detail.id === request.id && request.action !== 'finding.archive' && request.action !== 'finding.delete') {
           await showFinding(request.id)
         }
-        if (request.action === 'finding.archive') closeFinding()
+        if (request.action === 'finding.archive' || request.action === 'finding.delete') closeFinding()
         const campaignId = campaignDetailRef.current?.campaign.id
         if (campaignId !== undefined && request.id === campaignId && request.action.startsWith('campaign.')) {
           await showCampaign(campaignId)
@@ -629,10 +629,10 @@ function WorkbenchSurface({ projectRoot, sessionId, sessions, settings, openWork
             />
           ) : dashboard !== undefined ? (
             <>
-              {tab === 'overview' && <Overview data={dashboard} jobs={jobs} onRetryJob={job => { void retryJob(job) }} onTab={selectTab} onFinding={id => { void showFinding(id) }} onNew={() => openDialog('finding')} onOpenConfigured={openConfigured} />}
-              {tab === 'findings' && <Findings data={dashboard} onFinding={(id, archived) => { void showFinding(id, archived) }} onNew={() => openDialog('finding')} onOpenConfigured={openConfigured} />}
+              {tab === 'overview' && <Overview data={dashboard} jobs={jobs} onRetryJob={job => { void retryJob(job) }} onTab={selectTab} onFinding={id => { void showFinding(id) }} onNew={() => openDialog('finding')} onOpenConfigured={openConfigured} {...(openWorkspacePath === undefined ? {} : { onOpenPath: openWorkspacePath })} onRetryIssues={() => { void reload() }} />}
+              {tab === 'findings' && <Findings data={dashboard} onFinding={(id, archived) => { void showFinding(id, archived) }} onNew={() => openDialog('finding')} onOpenConfigured={openConfigured} {...(openWorkspacePath === undefined ? {} : { onOpenPath: openWorkspacePath })} onRetryIssues={() => { void reload() }} />}
               {tab === 'reproduction' && <ReproductionPage data={dashboard} onFinding={id => { void showFinding(id) }} onStart={id => { void startReproduction(id) }} onOpenSession={openLinkedSession} />}
-              {tab === 'campaigns' && <Campaigns data={dashboard} busy={anyBusy} onCampaign={id => { void showCampaign(id) }} onNew={() => openDialog('campaign')} onRepair={id => { void perform({ action: 'campaign.repair', id }, 'Campaign 配置已修复') }} />}
+              {tab === 'campaigns' && <Campaigns data={dashboard} busy={anyBusy} onCampaign={id => { void showCampaign(id) }} onNew={() => openDialog('campaign')} onRepair={id => { void perform({ action: 'campaign.repair', id }, 'Campaign 配置已修复') }} onOpenPath={openWorkspacePath} onRetryIssues={() => { void reload() }} />}
               {tab === 'search' && <SearchPage projectRoot={projectRoot} onFinding={(id, archived) => { void showFinding(id, archived) }} onCampaign={id => { void showCampaign(id) }} />}
             </>
           ) : null}

@@ -50,6 +50,6 @@ export const OMV_TOOL_NAMES = [
   'omv_poc_run_inspect', 'omv_poc_evidence_adopt',
 ] as const
 
-export type IconName = 'shield' | 'grid' | 'finding' | 'campaign' | 'pulse' | 'refresh' | 'close' | 'plus' | 'check' | 'alert' | 'chevron' | 'search' | 'terminal' | 'arrowUp' | 'inbox' | 'folder' | 'file' | 'maximize' | 'minimize' | 'archive' | 'activity' | 'clock' | 'eye'
+export type IconName = 'shield' | 'grid' | 'finding' | 'campaign' | 'pulse' | 'refresh' | 'close' | 'plus' | 'check' | 'alert' | 'chevron' | 'search' | 'terminal' | 'arrowUp' | 'inbox' | 'folder' | 'file' | 'copy' | 'maximize' | 'minimize' | 'archive' | 'activity' | 'clock' | 'eye'
 
 export type { DashboardPayload, EvidenceAssessment, EvidenceCheckState, SessionId, WorkflowIntent }

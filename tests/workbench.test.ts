@@ -66,6 +66,16 @@ describe('OmvWorkbench', () => {
     expect(finding.assessment).toMatchObject({ maturity: 'unmapped', phase: 'discovery', confidence: 'unrated' })
   })
 
+  it('deletes one finding through the mutation bridge only after exact ID confirmation', async () => {
+    const workbench = await fixture()
+    await workbench.action({ action: 'finding.create', id: 'deletable-finding', product: 'deletable', ecosystem: 'npm', vulnerabilityClass: 'ssrf', researcherGoal: 'triage' })
+    await expect(workbench.action({ action: 'finding.delete', id: 'deletable-finding', confirmId: 'wrong-id' })).rejects.toThrow(/confirmId must exactly match/)
+    const result = await workbench.action({ action: 'finding.delete', id: 'deletable-finding', confirmId: 'deletable-finding' }) as { id: string; archived: boolean }
+    expect(result).toMatchObject({ id: 'deletable-finding', archived: false })
+    await expect(workbench.finding('deletable-finding')).rejects.toThrow(/does not exist/)
+    await expect(workbench.dashboard()).resolves.toMatchObject({ metrics: { active: 0, archived: 0 } })
+  })
+
   it('enforces the mutation switch while retaining read actions', async () => {
     const workbench = await fixture(false)
     await expect(workbench.action({ action: 'workspace.init' })).rejects.toThrow('mutations are disabled')

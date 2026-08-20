@@ -108,6 +108,8 @@ export interface WorkbenchFindingSummary extends FindingWorkflowSummary {
   stage: AuditStage
   assessment: EvidenceAssessment
   sessionLink?: FindingSessionLink
+  /** File mtime used only for local queue sorting; Evidence remains the source of truth. */
+  updatedAt?: string
 }
 
 export interface DashboardPayload {
@@ -490,6 +492,10 @@ export interface SearchHit {
   description: string
   score: number
   archived?: boolean
+  /** When an activity row is tied to a record, this is the record to open. */
+  targetKind?: 'finding' | 'campaign'
+  targetId?: string
+  timestamp?: string
 }
 
 export interface WorkspaceExportPayload {
@@ -525,6 +531,7 @@ export type MutationAction =
   | 'finding.promote'
   | 'finding.archive'
   | 'finding.restore'
+  | 'finding.delete'
   | 'campaign.create'
   | 'campaign.repair'
   | 'campaign.seed'
@@ -659,6 +666,8 @@ export interface ActionRequest {
   intent?: WorkflowIntent
   status?: 'candidate' | 'confirmed' | 'blocked'
   reason?: string
+  /** Exact Finding ID required by the permanent-delete confirmation flow. */
+  confirmId?: string
   researcherGoal?: 'VulDB' | 'CVE' | 'advisory' | 'triage'
   product?: string
   ecosystem?: string

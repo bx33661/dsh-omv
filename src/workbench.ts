@@ -1,9 +1,10 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, stat, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import {
   EVIDENCE_ECOSYSTEMS,
   archiveFinding,
   createFindingTemplate,
+  deleteFinding,
   doctorFinding,
   initCampaign,
   initReproArtifacts,
@@ -67,6 +68,7 @@ const MUTATIONS = new Set([
   'finding.promote',
   'finding.archive',
   'finding.restore',
+  'finding.delete',
   'campaign.create',
   'campaign.repair',
   'campaign.seed',
@@ -161,10 +163,11 @@ export class OmvWorkbench {
     ])
     const { campaigns, issues: campaignIssues } = campaignInspection
     const findings = await Promise.all(rawFindings.map(async finding => {
-      const [evidence, validation, review] = await Promise.all([
+      const [evidence, validation, review, fileInfo] = await Promise.all([
         this.readEvidence(finding.path),
         validateFinding(finding.id, this.config.projectRoot),
         reviewFinding(finding.id, this.config.projectRoot),
+        stat(finding.path).catch(() => undefined),
       ])
       const sessionLink = links[finding.id]
       const findingReproductions = reproductionRuns.filter(run => run.findingId === finding.id)
@@ -174,6 +177,7 @@ export class OmvWorkbench {
         ...finding,
         stage: deriveAuditStage(detail, evidence, review),
         assessment,
+        ...(fileInfo === undefined ? {} : { updatedAt: fileInfo.mtime.toISOString() }),
         ...(sessionLink === undefined ? {} : { sessionLink }),
       }
     }))
@@ -367,9 +371,27 @@ export class OmvWorkbench {
       const haystack = `${campaign.id} ${campaign.title} ${campaign.target} ${campaign.version} ${campaign.nextAction}`.toLowerCase()
       if (haystack.includes(needle)) hits.push({ kind: 'campaign', id: campaign.id, title: campaign.title, description: `${campaign.target} · ${campaign.laneCount} lanes`, score: searchScore(haystack, needle) })
     }
+    const findingTargets = new Map<string, { archived?: boolean }>([
+      ...dashboard.findings.map(finding => [finding.id, { archived: false }] as const),
+      ...dashboard.archived.map(finding => [finding.id, { archived: true }] as const),
+    ])
+    const campaignTargets = new Set(dashboard.campaigns.map(campaign => campaign.id))
     dashboard.activity.forEach((entry, index) => {
       const haystack = JSON.stringify(entry).toLowerCase()
-      if (haystack.includes(needle)) hits.push({ kind: 'activity', id: `${entry.timestamp}-${index}`, title: entry.action, description: `${entry.id ?? ''} · ${entry.timestamp}`, score: searchScore(haystack, needle) })
+      if (!haystack.includes(needle)) return
+      const targetId = entry.id
+      const findingTarget = targetId === undefined ? undefined : findingTargets.get(targetId)
+      const targetKind = findingTarget !== undefined ? 'finding' : targetId !== undefined && campaignTargets.has(targetId) ? 'campaign' : undefined
+      hits.push({
+        kind: 'activity',
+        id: `${entry.timestamp}-${index}`,
+        title: entry.action,
+        description: `${targetId ?? '工作区'} · ${entry.timestamp}`,
+        score: searchScore(haystack, needle),
+        timestamp: entry.timestamp,
+        ...(targetKind === undefined || targetId === undefined ? {} : { targetKind, targetId }),
+        ...(findingTarget === undefined ? {} : { archived: findingTarget.archived }),
+      })
     })
     return hits.sort((left, right) => right.score - left.score || left.title.localeCompare(right.title)).slice(0, 80)
   }
@@ -482,6 +504,11 @@ export class OmvWorkbench {
         break
       case 'finding.restore':
         result = await restoreFinding(requiredString(request.id, 'id'), this.config.projectRoot)
+        break
+      case 'finding.delete':
+        result = await deleteFinding(requiredString(request.id, 'id'), this.config.projectRoot, {
+          confirmId: requiredString(request.confirmId, 'confirmId'),
+        })
         break
       case 'campaign.create':
         return initCampaign({
